@@ -59,6 +59,16 @@ Brnenie redukuje poškodenie od nepriateľov.
 
 #### Keycard
 Keycard vie otvoriť príslušné dvere(rovnakej farby)
+
+### Dvere
+Cez dvere sa nedá prejsť ak hráč nemá príslušný keycard.
+Ak hráč narazí do dverí a má príslušný keycard, otvoria sa.
+
+### Viditeľnosť
+Steny, dvere, nepriatelia ani itemy nie sú viditeľné ak sú zakryté dverami alebo stenou.
+Ak ich už hráč videl, zostávajú vykreslené na obrazovke, len v inej farbe
+
+
 ### Levely
 
 Levely sú štvorcové siete pozostávajúce zo:
