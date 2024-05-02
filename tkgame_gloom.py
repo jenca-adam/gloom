@@ -417,8 +417,15 @@ def intersect(p1, p2, p3, p4):
     x = x1 + ua * (x2 - x1)
     y = y1 + ua * (y2 - y1)
     return (x, y)
+def rgb2hex(r,g,b):
+    return f'#{r:02x}{g:02x}{b:02x}'
 
-
+def dimmen(hexcolor):
+    # reduces the saturation and brightness of a color
+    rgb = [int(i,16) for i in hexcolor.lstrip('#')]
+    #maxrgb = max(enumerate(rgb), key=lambda el:e[1]) # get the index of the max
+    
+    return rgb2hex(*(max(i-1,0) for i in rgb))
 class Weapon:
     def __init__(self, num_bullets):
         self.num_bullets = num_bullets
@@ -487,9 +494,12 @@ class Weapon:
             return self.shoot(src, dst, fnd)
         return []
 
+
 class GloomFileParser:
     def __init__(self, gloomfilepath):
-        with open(gloo
+        with open(gloomfilepath, "r") as stream:
+            pass
+
 
 class TilemapParser:
     def __init__(self, resolution, screen_size, tilemap, enemy_array, item_array):
@@ -742,8 +752,32 @@ class Label(Sprite):
     def label_tick(self):
         pass
 
+class GameElement(Sprite):
+    def __init__(self, *args, **kwargs):
+        self.active = False
+        self.seen = False
+        super().__init__(*args,**kwargs)
 
-class HasCollision(Sprite):
+    def tick(self):
+        line = (self.center_point, self.game.player.center_point)
+        if self.game.check_line_collision(*line):
+            self.active = False
+            if self.seen:
+                self.fill = self.remembered_color_hook()
+        else:
+            self.active = True
+            self.seen = True
+            self.fill = self.active_color_hook()
+        self.update(coords=False) #
+        self.sprite_tick()
+    def active_color_hook(self):
+        return self.fill
+    def remembered_color_hook(self):
+        return dimmen(self.fill)
+    def sprite_tick(self):
+        pass
+
+class HasCollision(GameElement):
     def __init__(self, coords, *args):
         self.points = (
             coords[0],
@@ -784,23 +818,6 @@ class HasCollision(Sprite):
 
     def on_collide(self, sprite):
         pass
-
-class GameElement(Sprite):
-    def __init__(self):
-        self.active = False
-        self.seen = False
-    def tick(self):
-        line =  (self.center_point, self.game.player.center_point)
-        if self.game.check_line_collision(*line):
-            self.active=False
-            if self.seen:
-                self.fill=self.remembered_color_hook()
-        else:
-            self.active=True
-            self.seen=True
-            self.fill=self.active_color_hook()
-
-
 
 class PlayerOrEnemy(HasCollision):
     shape = Shape.RECTANGLE
@@ -967,40 +984,37 @@ class Enemy(PlayerOrEnemy):
         self.weapon = Pistol(100)
         self.speed = 1.5
         super().__init__(*args, **kwargs)
+    def remembered_color_hook(self):
+        return "#a00"
+    
+    def active_color_hook(self):
 
-    def tick(self):
-        line = (self.center_point, self.game.player.center_point)
-        if self.game.check_line_collision(*line):
-            self.active = False
-            if self.seen:
-                self.fill = "#a00"
-                self.update(coords=False)
-
+        if self.hp == 100:
+            self.fill = "#faa"
+        elif 90 <= self.hp < 100:
+            self.fill = "#f99"
+        elif 80 <= self.hp < 90:
+            self.fill = "#f88"
+        elif 70 <= self.hp < 80:
+            self.fill = "#f77"
+        elif 60 <= self.hp < 70:
+            self.fill = "#f66"
+        elif 50 <= self.hp < 60:
+            self.fill = "#f55"
+        elif 40 <= self.hp < 50:
+            self.fill = "#f44"
+        elif 30 <= self.hp < 40:
+            self.fill = "#f33"
+        elif 20 <= self.hp < 30:
+            self.fill = "#f22"
+        elif 10 <= self.hp < 20:
+            self.fill = "#f11"
         else:
-            self.seen = True
-            self.active = True
-            if self.hp == 100:
-                self.fill = "#faa"
-            elif 90 <= self.hp < 100:
-                self.fill = "#f99"
-            elif 80 <= self.hp < 90:
-                self.fill = "#f88"
-            elif 70 <= self.hp < 80:
-                self.fill = "#f77"
-            elif 60 <= self.hp < 70:
-                self.fill = "#f66"
-            elif 50 <= self.hp < 60:
-                self.fill = "#f55"
-            elif 40 <= self.hp < 50:
-                self.fill = "#f44"
-            elif 30 <= self.hp < 40:
-                self.fill = "#f33"
-            elif 20 <= self.hp < 30:
-                self.fill = "#f22"
-            elif 10 <= self.hp < 20:
-                self.fill = "#f11"
-            else:
-                self.fill = "#f00"
+            self.fill = "#f00"
+
+    def sprite_tick(self):
+        line = (self.center_point, self.game.player.center_point)
+        if self.active:
             self.target = self.game.player.center_point
             self.update()
         if self.target is not None:
