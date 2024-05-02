@@ -2,7 +2,7 @@
 
 ## Úvod
 
-Hra GLOOM je inšpirovaná hrami ako DOOM a Half-Life, ibaže ide o dvojrozmerné prevedenie klasického konceptu strieľačky.
+Hra GLOOM je inšpirovaná klasickými strieľačkami ako DOOM a Half-Life, ale hrá sa v dvoch rozmeroch.
 Hráč sa pohybuje cez miestnosti a strieľa do nepriateľov. Počas hry môže zbierať zbrane padlých nepriateľov.
 Level sa skončí vtedy, keď hráč najde východ z levelu. 
 
