@@ -785,6 +785,22 @@ class HasCollision(Sprite):
     def on_collide(self, sprite):
         pass
 
+class GameElement(Sprite):
+    def __init__(self):
+        self.active = False
+        self.seen = False
+    def tick(self):
+        line =  (self.center_point, self.game.player.center_point)
+        if self.game.check_line_collision(*line):
+            self.active=False
+            if self.seen:
+                self.fill=self.remembered_color_hook()
+        else:
+            self.active=True
+            self.seen=True
+            self.fill=self.active_color_hook()
+
+
 
 class PlayerOrEnemy(HasCollision):
     shape = Shape.RECTANGLE
