@@ -399,6 +399,7 @@ RIGHT = Vector2(1, 0)
 DOWN = Vector2(0, 1)
 ### END
 
+WEAPON_PICKUP_CLASSES = {}
 
 def intersect(p1, p2, p3, p4):
     x1, y1 = p1
@@ -417,15 +418,12 @@ def intersect(p1, p2, p3, p4):
     x = x1 + ua * (x2 - x1)
     y = y1 + ua * (y2 - y1)
     return (x, y)
-def rgb2hex(r,g,b):
-    return f'#{r:02x}{g:02x}{b:02x}'
 
-def dimmen(hexcolor):
-    # reduces the saturation and brightness of a color
-    rgb = [int(i,16) for i in hexcolor.lstrip('#')]
-    #maxrgb = max(enumerate(rgb), key=lambda el:e[1]) # get the index of the max
-    
-    return rgb2hex(*(max(i-1,0) for i in rgb))
+
+def rgb2hex(r, g, b):
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
 class Weapon:
     def __init__(self, num_bullets):
         self.num_bullets = num_bullets
@@ -559,6 +557,19 @@ class Pistol(Weapon):
     reload_rate = 200
 
 
+class Shotgun(Weapon):
+    rng = 400
+    dmg = 20
+    pierce = 40
+    speed = 15
+    spread = 12
+    bullets_per_mg = 5
+    bullets_per_shot = 5
+    bullet_size = 2
+    rate = 100
+    reload_rate = 0
+
+
 class MonsterPistol(Weapon):
     rng = 400
     dmg = 5
@@ -599,7 +610,7 @@ class GLOOM(Game):
         self.bullets = []
         self.mouse_pos = (0, 0)
         self.mouse_held = False
-        self.weapon = Pistol(200)
+        self.weapon = Shotgun(200)
         self.weapons = [self.weapon]
         self.curr_weapon_index = 0
         super().__init__(*args)
@@ -612,13 +623,13 @@ class GLOOM(Game):
             )
         )
         self.enemies = [
-            Enemy.instantiate(
+            Pistoller.instantiate(
                 Coords(
                     self.screen_center * (1 / 8) - self.enemy_size * 0.5,
                     self.screen_center * (1 / 8) + self.enemy_size * 0.5,
                 ),
             ),
-            Enemy.instantiate(
+            Pistoller.instantiate(
                 Coords(
                     self.screen_center * (15 / 8) - self.enemy_size * 0.5,
                     self.screen_center * (15 / 8) + self.enemy_size * 0.5,
@@ -641,6 +652,7 @@ class GLOOM(Game):
         for wc in self.wall_coords:
             self.walls.append(Wall.instantiate(wc))
         self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
+        self.pline = Pline.instantiate(Coords((500, 10)))
 
     def is_pressed(self, *keys):
         return all(key in self.keys_down for key in keys)
@@ -665,12 +677,17 @@ class GLOOM(Game):
                 self.bullets.append(Bullet.instantiate(*bullargs))
         else:
             self.weapon.tick()
+        if self.weapon._bullets_left == 0:
+            if len(self.weapons) > 1:
+                self.weapons.remove(self.weapon)
+                self.weapon = self.weapons[-1]
         for dig in "12345678":
             if self.is_pressed(dig):
-                if len(self.weapons) <= int(dig):
+                print(int(dig), self.weapons)
+                if len(self.weapons) >= int(dig):
                     self.weapons[self.curr_weapon_index] = self.weapon
-                    self.weapon = self.weapons[int(dig)]
-                    self.curr_weapon_index = int(dig)
+                    self.weapon = self.weapons[int(dig) - 1]
+                    self.curr_weapon_index = int(dig) - 1
         # print(len(self.bullets))
         for bullet in self.bullets:
             if not bullet.flying:
@@ -688,8 +705,12 @@ class GLOOM(Game):
                 return True
         return False
 
-    def check_line_collision(self, p1, p2):
-        for wall in self.walls:
+    def check_line_collision(self, p1, p2, ignore=None):
+        walls = self.walls.copy()
+        if ignore in walls:
+            # print(ignore)
+            walls.remove(ignore)
+        for wall in walls:
             if wall.line_cross_check(p1, p2):
                 return True
         return False
@@ -719,12 +740,12 @@ class GLOOM(Game):
     @Game.on("<KeyPress>", True)
     def _on_key_press(self, event):
         if event.keysym:
-            self.keys_down.add(event.keysym)
+            self.keys_down.add(event.keysym.lower())
 
     @Game.on("<KeyRelease>", True)
     def _on_key_release(self, event):
-        if event.keycode:
-            self.keys_down.remove(event.keysym)
+        if event.keysym and event.keysym.lower() in self.keys_down:
+            self.keys_down.remove(event.keysym.lower())
 
     @Game.on("<Motion>", True)
     def _on_mouse_move(self, event):
@@ -752,30 +773,39 @@ class Label(Sprite):
     def label_tick(self):
         pass
 
+
 class GameElement(Sprite):
     def __init__(self, *args, **kwargs):
         self.active = False
         self.seen = False
-        super().__init__(*args,**kwargs)
+        self._defaultfill = self.kwargs.get("fill", "#000")
+        super().__init__(*args, **kwargs)
 
     def tick(self):
         line = (self.center_point, self.game.player.center_point)
-        if self.game.check_line_collision(*line):
+
+        if self.game.check_line_collision(*line, ignore=self):
             self.active = False
             if self.seen:
                 self.fill = self.remembered_color_hook()
+            else:
+                self.fill = "#000"
         else:
             self.active = True
             self.seen = True
             self.fill = self.active_color_hook()
-        self.update(coords=False) #
+        self.update(coords=False)  #
         self.sprite_tick()
+
     def active_color_hook(self):
-        return self.fill
+        return self._defaultfill
+
     def remembered_color_hook(self):
-        return dimmen(self.fill)
+        return self._defaultfill
+
     def sprite_tick(self):
         pass
+
 
 class HasCollision(GameElement):
     def __init__(self, coords, *args):
@@ -819,6 +849,7 @@ class HasCollision(GameElement):
     def on_collide(self, sprite):
         pass
 
+
 class PlayerOrEnemy(HasCollision):
     shape = Shape.RECTANGLE
 
@@ -848,6 +879,7 @@ class PlayerOrEnemy(HasCollision):
         self.armor -= bullet.dmg * armor_damage_ratio
         self.armor = max(self.armor, 0)
         if self.hp <= 0:
+            self.on_die()
             self.send_event("die")
             self.quit()
         self.on_hit()
@@ -855,34 +887,47 @@ class PlayerOrEnemy(HasCollision):
 
     def on_hit(self):
         pass
+    def on_die(self):
+        pass
 
 
 class Item(HasCollision):
     shape = Shape.OVAL
+    def __init__(self,*args, **kwargs):
+        self.picked_up=False
+        super().__init__(*args,**kwargs)
 
 
 class WeaponPickupItem(Item):
     kwargs = {"fill": "#a50"}
-
+    def __init_subclass__(cls):
+        WEAPON_PICKUP_CLASSES[cls.weapclass.__name__]=cls
     def on_pickup(self):
-        for weap in self.game.weapons:
-            if weap.__class__ == self.weapclass:
-                weap._bullets_left += weap.bullets_per_mg
-                weap._bullets_left_in_magazine = weap.bullets_per_mg
-                break
-        else:
-            weapon = self.weapclass(self.weapclass.bullets_per_mg)
-            self.game.weapons.append(weapon)
-            self.game.weapon = weapon
+        if not self.picked_up:
+            self.picked_up=True
+            self.game.pline.pline(f"Picked up a {self.weapclass.__name__}")
+            for weap in self.game.weapons:
+                if weap.__class__ == self.weapclass:
+                    weap._bullets_left += weap.bullets_per_mg
+                    weap._bullets_left_in_magazine = weap.bullets_per_mg
+                    break
+            else:
+                weapon = self.weapclass(self.weapclass.bullets_per_mg)
+                self.game.weapons.append(weapon)
+                self.game.curr_weapon_index = len(self.game.weapons) - 1
+                self.game.weapon = weapon
+
+    def remembered_color_hook(self):
+        return "#650"
 
 
 class Door(HasCollision):
     shape = Shape.RECTANGLE
 
     def on_collide(self, sprite):
-        print("coll")
+        # print("coll")
         if sprite.name == "Player":
-            print("collPlayer")
+            # print("collPlayer")
             if self.game.has_keycard(self.keycardid):
                 self.game.walls.remove(self)
                 self.can_collide = False
@@ -891,7 +936,35 @@ class Door(HasCollision):
 
 class KeyCard(Item):
     def on_pickup(self):
-        self.game.keycards.add(self.keycardid)
+        if not self.picked_up:
+            self.picked_up=True
+            self.game.pline.pline(f"Picked up a {self.keycardname} keycard")
+            self.game.keycards.add(self.keycardid)
+
+
+@GLOOM.sprite()
+class Pline(Sprite):
+    shape = Shape.TEXT
+    kwargs = {"fill": "#fff", "text": "", "font": ("Stencil", 20)}
+
+    def __init__(self, *args, **kwargs):
+        self.lines = []
+        super().__init__(*args, **kwargs)
+
+    def depline(self):
+        del self.lines[0]
+        self.coords-=Vector2(0,self.kwargs["font"][1])
+        self._refresh()
+
+    def pline(self, text):
+        self.coords+=Vector2(0,self.kwargs["font"][1])
+        self.lines.append(text)
+        self._refresh()
+        self.game.after(1000, self.depline)
+
+    def _refresh(self):
+        self.text = "\n".join(self.lines)
+        self.update()
 
 
 @GLOOM.sprite()
@@ -899,16 +972,34 @@ class BlueDoor(Door):
     keycardid = 1
     kwargs = {"fill": "#33d"}
 
+    def remembered_color_hook(self):
+        return "#449"
+
 
 @GLOOM.sprite()
 class BlueKeyCard(KeyCard):
     keycardid = 1
+    keycardname = "blue"
     kwargs = {"fill": "#33d"}
+
+    def remembered_color_hook(self):
+        return "#449"
 
 
 @GLOOM.sprite()
 class PistolPickupItem(WeaponPickupItem):
     weapclass = Pistol
+
+
+@GLOOM.sprite()
+class MediKit(Item):
+    kwargs = {"fill": "#0f0"}
+
+    def on_pickup(self):
+        self.game.pline.pline("Picked up a medikit")
+
+    def remembered_color_hook(self):
+        return "#0a0"
 
 
 @GLOOM.sprite()
@@ -972,7 +1063,6 @@ class Player(PlayerOrEnemy):
         print(self.hp)
 
 
-@GLOOM.sprite()
 class Enemy(PlayerOrEnemy):
     kwargs = {"fill": "#000"}
     friendly = False
@@ -981,36 +1071,17 @@ class Enemy(PlayerOrEnemy):
         self.active = False
         self.target = None
         self.seen = False
-        self.weapon = Pistol(100)
-        self.speed = 1.5
+        self.weapon = self._weapon(self._ammo)
+        self.speed = self._speed
+        self.hp = self.maxhp = self._hp
+        self.armor = self._armor
         super().__init__(*args, **kwargs)
-    def remembered_color_hook(self):
-        return "#a00"
-    
-    def active_color_hook(self):
 
-        if self.hp == 100:
-            self.fill = "#faa"
-        elif 90 <= self.hp < 100:
-            self.fill = "#f99"
-        elif 80 <= self.hp < 90:
-            self.fill = "#f88"
-        elif 70 <= self.hp < 80:
-            self.fill = "#f77"
-        elif 60 <= self.hp < 70:
-            self.fill = "#f66"
-        elif 50 <= self.hp < 60:
-            self.fill = "#f55"
-        elif 40 <= self.hp < 50:
-            self.fill = "#f44"
-        elif 30 <= self.hp < 40:
-            self.fill = "#f33"
-        elif 20 <= self.hp < 30:
-            self.fill = "#f22"
-        elif 10 <= self.hp < 20:
-            self.fill = "#f11"
-        else:
-            self.fill = "#f00"
+    def remembered_color_hook(self):
+        return self._remembered_color
+
+    def active_color_hook(self):
+        return self._active_colors[int(self.hp / (self.maxhp / 10))]
 
     def sprite_tick(self):
         line = (self.center_point, self.game.player.center_point)
@@ -1036,6 +1107,32 @@ class Enemy(PlayerOrEnemy):
                 self.send_event("shoot", self.weapon, self.target, self.center_point)
             else:
                 self.weapon.tick()  # allow cooldown
+
+    def on_die(self):
+        wp = WEAPON_PICKUP_CLASSES[self.weapon.__class__.__name__].instantiate(self.coords)
+        self.game.items.append(wp)
+
+@GLOOM.sprite()
+class Pistoller(Enemy):
+    _weapon = Pistol
+    _ammo = 10
+    _speed = 1.5
+    _hp = 100
+    _armor = 0
+    _remembered_color = "#a00"
+    _active_colors = [
+        "#f00",
+        "#f11",
+        "#f22",
+        "#f33",
+        "#f44",
+        "#f55",
+        "#f66",
+        "#f77",
+        "#f88",
+        "#f99",
+        "#faa",
+    ]
 
 
 @GLOOM.sprite()
