@@ -400,7 +400,7 @@ DOWN = Vector2(0, 1)
 ### END
 
 WEAPON_PICKUP_CLASSES = {}
-
+KEYCARDS = {}
 
 def intersect(p1, p2, p3, p4):
     x1, y1 = p1
@@ -567,22 +567,8 @@ class Shotgun(Weapon):
     bullets_per_mg = 5
     bullets_per_shot = 5
     bullet_size = 2
-    rate = 100
-    reload_rate = 0
-
-
-class MonsterPistol(Weapon):
-    rng = 400
-    dmg = 5
-    pierce = 40
-    speed = 5
-    spread = 0
-    bullets_per_mg = 10
-    bullets_per_shot = 1
-    bullet_size = 5
-    rate = 100
-    reload_rate = 200
-
+    rate = 0
+    reload_rate = 100
 
 class GLOOM(Game):
     screen_size = Vector2(960, 540)
@@ -613,6 +599,7 @@ class GLOOM(Game):
         self.mouse_held = False
         self.weapon = Shotgun(200)
         self.weapons = [self.weapon]
+        self.known_weapons = [w.__class__ for w in self.weapons]
         self.curr_weapon_index = 0
         super().__init__(*args)
 
@@ -653,7 +640,8 @@ class GLOOM(Game):
         for wc in self.wall_coords:
             self.walls.append(Wall.instantiate(wc))
         self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
-        self.pline = Pline.instantiate(Coords((500, 10)))
+        self.kc_indicator = KeycardIndicator.instantiate(Coords((840, 20)))
+        self.pline = Pline.instantiate(Coords((500, 20)))
 
     def is_pressed(self, *keys):
         return all(key in self.keys_down for key in keys)
@@ -858,6 +846,7 @@ class PlayerOrEnemy(HasCollision):
         self.hp = hp
         self.armor = armor
         self.active = True
+        self.dead = False
         super().__init__(coords, *args, **kwargs)
 
     def move(self, delta):
@@ -874,16 +863,19 @@ class PlayerOrEnemy(HasCollision):
                     self.update()
 
     def hit(self, bullet):
-        body_damage_ratio = (bullet.pierce) / 100
-        armor_damage_ratio = 1 - body_damage_ratio
-        self.hp -= bullet.dmg * body_damage_ratio
-        self.armor -= bullet.dmg * armor_damage_ratio
-        self.armor = max(self.armor, 0)
-        if self.hp <= 0:
-            self.on_die()
-            self.send_event("die")
-            self.quit()
-        self.on_hit()
+        if not self.dead:
+            body_damage_ratio = (bullet.pierce) / 100
+            armor_damage_ratio = 1 - body_damage_ratio
+            self.hp -= bullet.dmg * body_damage_ratio
+            self.armor -= bullet.dmg * armor_damage_ratio
+            self.armor = max(self.armor, 0)
+            if self.hp <= 0:
+                self.dead=True
+                print("died")
+                self.on_die()
+                self.send_event("die")
+                self.quit()
+            self.on_hit()
         # print(self.hp, self.armor)
 
     def on_hit(self):
@@ -899,7 +891,11 @@ class Item(HasCollision):
     def __init__(self, *args, **kwargs):
         self.picked_up = False
         super().__init__(*args, **kwargs)
-
+    
+    def on_pickup(self):
+        if not self.picked_up:
+            self.on_pickup_item()
+            self.picked_up=True
 
 class WeaponPickupItem(Item):
     kwargs = {"fill": "#a50"}
@@ -907,18 +903,18 @@ class WeaponPickupItem(Item):
     def __init_subclass__(cls):
         WEAPON_PICKUP_CLASSES[cls.weapclass.__name__] = cls
 
-    def on_pickup(self):
-        if not self.picked_up:
-            self.picked_up = True
-            self.game.pline.pline(f"Picked up a {self.weapclass.__name__}")
-            for weap in self.game.weapons:
-                if weap.__class__ == self.weapclass:
-                    weap._bullets_left += weap.bullets_per_mg
-                    weap._bullets_left_in_magazine = weap.bullets_per_mg
-                    break
-            else:
-                weapon = self.weapclass(self.weapclass.bullets_per_mg)
-                self.game.weapons.append(weapon)
+    def on_pickup_item(self):
+        self.game.pline.pline(f"Picked up a {self.weapclass.__name__}")
+        for weap in self.game.weapons:
+            if weap.__class__ == self.weapclass:
+                weap._bullets_left += weap.bullets_per_mg
+                weap._bullets_left_in_magazine = weap.bullets_per_mg
+                break
+        else:
+            weapon = self.weapclass(self.weapclass.bullets_per_mg)
+            self.game.weapons.append(weapon)
+            if self.weapclass not in self.game.known_weapons:
+                self.game.known_weapons.append(self.weapclass)
                 self.game.curr_weapon_index = len(self.game.weapons) - 1
                 self.game.weapon = weapon
 
@@ -940,11 +936,11 @@ class Door(HasCollision):
 
 
 class KeyCard(Item):
-    def on_pickup(self):
-        if not self.picked_up:
-            self.picked_up = True
-            self.game.pline.pline(f"Picked up a {self.keycardname} keycard")
-            self.game.keycards.add(self.keycardid)
+    def __init_subclass__(cls):
+        KEYCARDS[cls.keycardid]=cls
+    def on_pickup_item(self):
+        self.game.pline.pline(f"Picked up a {self.keycardname} keycard")
+        self.game.keycards.add(self.keycardid)
 
 
 @GLOOM.sprite()
@@ -1000,9 +996,9 @@ class PistolPickupItem(WeaponPickupItem):
 class MediKit(Item):
     kwargs = {"fill": "#0f0"}
 
-    def on_pickup(self):
+    def on_pickup_item(self):
         self.game.pline.pline("Picked up a medikit")
-
+        self.game.player.hp=min(self.game.player.hp+25, 100)
     def remembered_color_hook(self):
         return "#0a0"
 
@@ -1020,8 +1016,12 @@ class FPSMeter(Sprite):
 @GLOOM.sprite()
 class AmmoMeter(Label):
     kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#00e"}
-    fmt = "{self.game.weapon.__class__.__name__}:{f'{self.game.weapon._bullets_left_in_magazine}|{self.game.weapon._bullets_left}' if self.game.weapon._until_reload==0 else 'Reloading'}"
+    fmt = "{self.game.weapon.__class__.__name__}:{self.game.weapon._bullets_left_in_magazine}|{self.game.weapon._bullets_left}{'(R)' if self.game.weapon._until_reload>0 else ''}"
 
+@GLOOM.sprite()
+class KeycardIndicator(Label):
+    kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#ea0"}
+    fmt = "Keycards: {','.join(KEYCARDS[kc].keycardname for kc in self.game.keycards)}"
 
 @GLOOM.sprite()
 class HealthMeter(Label):
