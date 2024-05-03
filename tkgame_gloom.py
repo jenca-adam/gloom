@@ -401,6 +401,7 @@ DOWN = Vector2(0, 1)
 
 WEAPON_PICKUP_CLASSES = {}
 
+
 def intersect(p1, p2, p3, p4):
     x1, y1 = p1
     x2, y2 = p2
@@ -887,24 +888,28 @@ class PlayerOrEnemy(HasCollision):
 
     def on_hit(self):
         pass
+
     def on_die(self):
         pass
 
 
 class Item(HasCollision):
     shape = Shape.OVAL
-    def __init__(self,*args, **kwargs):
-        self.picked_up=False
-        super().__init__(*args,**kwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.picked_up = False
+        super().__init__(*args, **kwargs)
 
 
 class WeaponPickupItem(Item):
     kwargs = {"fill": "#a50"}
+
     def __init_subclass__(cls):
-        WEAPON_PICKUP_CLASSES[cls.weapclass.__name__]=cls
+        WEAPON_PICKUP_CLASSES[cls.weapclass.__name__] = cls
+
     def on_pickup(self):
         if not self.picked_up:
-            self.picked_up=True
+            self.picked_up = True
             self.game.pline.pline(f"Picked up a {self.weapclass.__name__}")
             for weap in self.game.weapons:
                 if weap.__class__ == self.weapclass:
@@ -937,7 +942,7 @@ class Door(HasCollision):
 class KeyCard(Item):
     def on_pickup(self):
         if not self.picked_up:
-            self.picked_up=True
+            self.picked_up = True
             self.game.pline.pline(f"Picked up a {self.keycardname} keycard")
             self.game.keycards.add(self.keycardid)
 
@@ -953,11 +958,11 @@ class Pline(Sprite):
 
     def depline(self):
         del self.lines[0]
-        self.coords-=Vector2(0,self.kwargs["font"][1])
+        self.coords -= Vector2(0, self.kwargs["font"][1])
         self._refresh()
 
     def pline(self, text):
-        self.coords+=Vector2(0,self.kwargs["font"][1])
+        self.coords += Vector2(0, self.kwargs["font"][1])
         self.lines.append(text)
         self._refresh()
         self.game.after(1000, self.depline)
@@ -1109,8 +1114,11 @@ class Enemy(PlayerOrEnemy):
                 self.weapon.tick()  # allow cooldown
 
     def on_die(self):
-        wp = WEAPON_PICKUP_CLASSES[self.weapon.__class__.__name__].instantiate(self.coords)
+        wp = WEAPON_PICKUP_CLASSES[self.weapon.__class__.__name__].instantiate(
+            self.coords
+        )
         self.game.items.append(wp)
+
 
 @GLOOM.sprite()
 class Pistoller(Enemy):
