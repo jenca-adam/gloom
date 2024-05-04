@@ -224,7 +224,6 @@ class Sprites:
         self.sprites.remove(sprite)
 
     def run_all_threads(self):
-        print(self.sprites)
         for sprite in self.sprites:
             sprite.start()
 
@@ -303,7 +302,6 @@ class Game:
         def _to_bind(*args):
             func(self, *args)
 
-        print(_to_bind)
         if bind_all:
             self.root.bind_all(input_type, _to_bind)
         else:
@@ -589,7 +587,6 @@ class Tilemap:
     ):
         self.resolution = resolution
         self.cell_size = screen_size.notdot(1 / resolution)
-        print(self.cell_size)
         self.items = []
         self.doors = []
         self.walls = []
@@ -608,7 +605,6 @@ class Tilemap:
                     # wall
                     # TODO Wall merging to save on collision computation time
                     self.tilemap[y][x] = (Wall, self.calculate_cell_coords(x, y))
-                    print(f"wall@{self.calculate_cell_coords(x, y).coords}")
                     self.walls.append((Wall, self.calculate_cell_coords(x, y)))
                 elif char.isalpha() and char.isupper():
                     # enemy
@@ -811,7 +807,6 @@ class GLOOM(Game):
                 self.weapon = self.weapons[-1]
         for dig in "12345678":
             if self.is_pressed(dig):
-                print(int(dig), self.weapons)
                 if len(self.weapons) >= int(dig):
                     self.weapons[self.curr_weapon_index] = self.weapon
                     self.weapon = self.weapons[int(dig) - 1]
@@ -911,7 +906,7 @@ class GameElement(Sprite):
 
     def tick(self):
         line = (self.center_point, self.game.player.center_point)
-
+        
         if self.game.check_line_collision(*line, ignore=self):
             self.active = False
             if self.seen:
@@ -938,6 +933,7 @@ class GameElement(Sprite):
 
 class HasCollision(GameElement):
     def __init__(self, coords, *args):
+        print(coords)
         self.points = (
             coords[0],
             coords[1],
@@ -982,7 +978,7 @@ class HasCollision(GameElement):
 class PlayerOrEnemy(HasCollision):
     shape = Shape.RECTANGLE
 
-    def __init__(self, coords, hp=100, armor=0, *args, **kwargs):
+    def __init__(self, coords, hp=10000, armor=0, *args, **kwargs):
         self.hp = hp
         self.armor = armor
         self.active = True
@@ -1011,7 +1007,6 @@ class PlayerOrEnemy(HasCollision):
             self.armor = max(self.armor, 0)
             if self.hp <= 0:
                 self.dead = True
-                print("died")
                 self.on_die()
                 self.send_event("die")
                 self.quit()
@@ -1167,7 +1162,8 @@ class MediKit(Item):
 
     def on_pickup_item(self):
         self.game.pline.pline("Picked up a medikit")
-        self.game.player.hp = min(self.game.player.hp + 25, 100)
+        if self.game.player.hp<100:
+            self.game.player.hp = min(self.game.player.hp + 25, 100)
 
     def remembered_color_hook(self):
         return "#0a0"
@@ -1191,7 +1187,8 @@ class StimPack(Item):
 
     def on_pickup_item(self):
         self.game.pline.pline("Picked up a stimpack")
-        self.game.player.hp = min(self.game.player.hp + 10, 100)
+        if self.game.player.hp<100:
+            self.game.player.hp = min(self.game.player.hp + 10, 100)
 
     def remembered_color_hook(self):
         return "#040"
@@ -1258,7 +1255,7 @@ class Wall(HasCollision):
 class Player(PlayerOrEnemy):
     kwargs = {"fill": "#aaf"}
     friendly = True
-
+    
     def on_hit(self):
         print(self.hp)
 
@@ -1268,6 +1265,7 @@ class Enemy(PlayerOrEnemy):
     friendly = False
 
     def __init__(self, *args, **kwargs):
+        print(args)
         self.active = False
         self.target = None
         self.seen = False
@@ -1275,7 +1273,7 @@ class Enemy(PlayerOrEnemy):
         self.speed = self._speed
         self.hp = self.maxhp = self._hp
         self.armor = self._armor
-        super().__init__(*args, **kwargs)
+        super().__init__(*args,hp=self.hp, armor=self.armor, **kwargs)
 
     def remembered_color_hook(self):
         return self._remembered_color
@@ -1289,7 +1287,7 @@ class Enemy(PlayerOrEnemy):
             self.target = self.game.player.center_point
             self.update()
         if self.target is not None:
-            if (self.target - self.center_point).norm > 10:  # arbitrary/placeholder
+            if (self.target - self.center_point).norm > 10 and self.weapon._bullets_left>0:  # arbitrary/placeholder
                 movevect = (
                     (self.target - self.center_point).normalize()
                     * self.speed
@@ -1298,11 +1296,19 @@ class Enemy(PlayerOrEnemy):
                 # move in each direction separately to avoid getting stuck on walls
                 self.move(movevect.notdot(Vector2(1, 0)))
                 self.move(movevect.notdot(Vector2(0, 1)))
+            if self.weapon._bullets_left==0 and (self.target - self.center_point).norm<=self.game.weapon.rng:
+                movevect =((self.target - self.center_point).normalize()
+                    * self.speed
+                    * ((self.target - self.center_point).norm / self.weapon.rng)*-1)
+                self.move(movevect.notdot(Vector2(1, 0)))
+                self.move(movevect.notdot(Vector2(0, 1)))
+
+
             # only shoot when in range and active
             # the enemies will generally get worse weapons because their aim is better
             if (
                 self.active
-                and (self.target - self.center_point).norm <= self.weapon.rng
+                and (self.target - self.center_point).norm <= self.weapon.rng and self.weapon._bullets_left>0
             ):
                 self.send_event("shoot", self.weapon, self.target, self.center_point)
             else:
@@ -1318,7 +1324,7 @@ class Enemy(PlayerOrEnemy):
 @GLOOM.sprite()
 class Pistoller(Enemy):
     _weapon = Pistol
-    _ammo = 10
+    _ammo = 100
     _speed = 1.5
     _hp = 100
     _armor = 0
@@ -1341,7 +1347,7 @@ class Pistoller(Enemy):
 @GLOOM.sprite()
 class Shotgunner(Enemy):
     _weapon = Shotgun
-    _ammo = 25
+    _ammo = 100
     _speed = 1
     _hp = 75
     _armor = 0
@@ -1364,9 +1370,9 @@ class Shotgunner(Enemy):
 @GLOOM.sprite()
 class Defender(Enemy):
     _weapon = Pistol
-    _ammo = 100
+    _ammo = 200
     _speed = 0
-    _hp = 200
+    _hp = 100
     _armor = 100
     _remembered_color = "#aaa"
     _active_colors = [
