@@ -3,8 +3,6 @@
 @resolution 128x72
 @level 0
 	!name Hellscapes 
-	!entrance ^
-	!exit _
 	!items
 		:medikit # a
 		:stimpack # b
@@ -13,12 +11,15 @@
 		:shotgunpickup # e
 		:machinegunpickup # f
 		:bluekeycard #g
+		:end
 	!enemies
 		:pistoler # A
 		:shotgunner # B
 		:defender # C
+		:end
 	!doors
 		:BlueDoor #1
+		:end
 	!map
 															       
 																
@@ -49,6 +50,7 @@
 																	 
 																	 
 	!end
+@end
                                                                                                                                 
                                                                                                                                  
                                                                                                                                  

@@ -420,6 +420,25 @@ def intersect(p1, p2, p3, p4):
     y = y1 + ua * (y2 - y1)
     return (x, y)
 
+def uncomment(string):
+    if not string:
+        return None
+    if '#' in string:
+        return string[:string.index('#')].strip()
+    return string.strip()
+
+def parse_class_array(stream, class_dict):
+    self.cl_array=[]
+    while True:
+            line = uncomment(stream.readline())
+            if line is None:
+                break
+            elif line.startswith(":"):
+                item=line.removeprefix(":")
+                if item=="end":
+                    break
+                self.cl_array.append(class_dict[item])
+                
 
 def rgb2hex(r, g, b):
     return f"#{r:02x}{g:02x}{b:02x}"
@@ -494,23 +513,67 @@ class Weapon:
         return []
 
 
-class GloomFileParser:
-    def __init__(self, gloomfilepath):
-        with open(gloomfilepath, "r") as stream:
-            pass
+class GloomFile:
+    def __init__(self, gloomfilepath, screen_size):
+        self.gloom_properties = {}
+        self.screen_size=Vector2(*screen_size)
+        self.levels = []
+        with open(gloomfilepath, "r") as self.stream:
+            while True:
+                line = uncomment(self.stream.readline())
+                if line is None:
+                    break
+                elif line.startswith("@"):
+                    cmd, *_val = line.removeprefix("@").split(None, 1)
+                    value = _val[0] if _val else None
+                    if cmd=="end":
+                        break
+                    elif cmd=="level"
+                        
+                    else:
+                        self.gloom_properties[cmd]=value
 
 
-class TilemapParser:
-    def __init__(self, resolution, screen_size, tilemap, enemy_array, item_array):
+class Level:
+    def __init__(self, level_id, stream, parent):
+        self.stream=stream
+        self.parent=parent
+        self.level_properties = {}
+        self.level_id=level_id
+        while True:
+                line = uncomment(self.stream.readline())
+                if line is None:
+                    break
+                elif line.startswith("!"):
+                    cmd, *_val = line.removeprefix("!").split(None, 1)
+                    value = _val[0] if _val else None
+                    if cmd=="end":
+                        break
+                    elif cmd=="items":
+                        self.item_array=parse_class_array(self.stream, ITEM_CLASSES)
+                    elif cmd=="enemies":
+                        self.enemy_array=parse_class_array(self.stream, ENEMY_CLASSES)
+                    elif cmd=="doors":
+                        self.door_array=parse_class_array(self.stream, DOOR_CLASSES)
+                    elif cmd=="map":
+                        self.map=Tilemap(self.parent.resolution, self.parent.screen_size, self.stream, self.enemy_array, self.item_array, self.door_array)
+class Tilemap:
+    def __init__(self, resolution, screen_size, tilemap, enemy_array, item_array, door_array):
         self.resolution = resolution
         self.cell_size = resolution.notdot(1 / screen_size)
+        self.items = []
+        self.doors = []
+        self.walls = []
+        self.enemies = []
         self.tilemap = [
             [None for _ in range(resolution.x)] for _ in range(resolution.y)
         ]
-        self._tilemap = io.BytesIO(tilemap)
+        self._tilemap = tilemap
         y = 0
         while True:
             nl = self._tilemap.readline().strip()
+            if nl=="!end":
+                break
             if not nl:
                 break
             for x, char in enumerate(nl):
@@ -518,20 +581,32 @@ class TilemapParser:
                     # wall
                     # TODO Wall merging to save on collision computation time
                     self.tilemap[y][x] = (Wall, self.calculate_cell_coords(x, y))
+                    self.walls.append((Wall, self.calculate_cell_coords(x,y)))
                 elif ord("A") <= char <= ord("Z"):
                     # enemy
                     self.tilemap[y][x] = (
                         enemy_array[char - ord("A")],
                         self.calculate_cell_coords(x, y),
                     )
+                    self.enemies.append(( enemy_array[char - ord("A")], self.calculate_cell_coords(x,y)))
                 elif ord("a") <= char <= ord("z"):
                     # item
                     self.tilemap[y][x] = (
                         item_array[char - ord("a")],
                         self.calculate_cell_coords(x, y),
                     )
+                    self.items.append((item_array[char-ord("a")],self.calculate_cell_coords(x,y)))
+                elif ord("1") <= char <= ord("9"):
+                    #door
+                    #TODO Merge doors too
+                    self.tilemap[y][x] = (
+                        door_array[char - ord("1")],
+                        self.calculate_cell_coords(x, y),
+                    )
+                    self.doors.append((door_array[char-ord("1")],self.calculate_cell_coords(x,y)))
 
-    def instantiate_all(self):
+
+    def instantiate_all(self): #DOESNT
         for row in self.tilemap:
             for element in row:
                 if element is not None:
