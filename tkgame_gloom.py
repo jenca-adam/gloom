@@ -231,6 +231,11 @@ class Sprites:
         for sprite in self.sprites.copy():
             sprite.quit()
 
+    def try_run(self, funname):
+        for sprite in self.sprites:
+            if hasattr(sprite, funname):
+                getattr(sprite,funname)()
+
 
 class Timer:
     def __init__(self, timeout, callback, root):
@@ -587,70 +592,94 @@ class Tilemap:
     ):
         self.resolution = resolution
         self.cell_size = screen_size.notdot(1 / resolution)
+        self.player_coords = None
         self.items = []
         self.doors = []
         self.walls = []
         self.enemies = []
         self.tilemap = [
-            [None for _ in range(resolution.x)] for _ in range(resolution.y)
+            [(None, None) for _ in range(resolution.x)] for _ in range(resolution.y)
         ]
         self._tilemap = tilemap
+        merged_vertical = set()
+        merged_horizontal = set()
+        wall_indices = {}
         y = 0
+
         while True:
-            nl = self._tilemap.readline().rstrip()
+            nl = self._tilemap.readline().rstrip().replace("\t","    ")#important shit
             if nl.strip() == "!end":
                 break
             for x, char in enumerate(nl):
+                cell_coords=self.calculate_cell_coords(x,y)
                 if char == "#":
                     # wall
-                    # TODO Wall merging to save on collision computation time
-                    self.tilemap[y][x] = (Wall, self.calculate_cell_coords(x, y))
-                    self.walls.append((Wall, self.calculate_cell_coords(x, y)))
+                    if x>0 and (x-1,y) in wall_indices and (x-1,y) not in merged_vertical:
+                        print("hmerge",x,y)
+                        wall_indices[(x,y)]=wall_indices[(x-1,y)]
+                        self.walls[wall_indices[(x-1,y)]][1][1]=cell_coords[1]
+                        merged_horizontal.add((x,y))
+                        merged_horizontal.add((x-1,y))
+                    elif y>0 and (x,y-1) in wall_indices and (x,y-1) not in merged_horizontal:
+                        print("vmerge",x,y)
+                        wall_indices[(x,y)]=wall_indices[(x,y-1)]
+                        self.walls[wall_indices[(x,y-1)]][1][1]=cell_coords[1]
+                        merged_vertical.add((x,y))
+                        merged_vertical.add((x,y-1))
+
+                    else:
+                        print("new",x,y)
+                        self.tilemap[y][x] = [Wall, cell_coords]
+                        wall_indices[(x,y)]=len(self.walls)
+                        self.walls.append([Wall, cell_coords])
                 elif char.isalpha() and char.isupper():
                     # enemy
                     self.tilemap[y][x] = (
                         enemy_array[ord(char) - ord("A")],
-                        self.calculate_cell_coords(x, y),
+                        cell_coords,
                     )
                     self.enemies.append(
-                        (
+                        [
                             enemy_array[ord(char) - ord("A")],
-                            self.calculate_cell_coords(x, y),
-                        )
+                            cell_coords,
+                            ]
                     )
                 elif char.isalpha() and char.islower():
                     # item
-                    self.tilemap[y][x] = (
+                    self.tilemap[y][x] = [
                         item_array[ord(char) - ord("a")],
-                        self.calculate_cell_coords(x, y),
-                    )
+                        cell_coords,
+                        ]
                     self.items.append(
-                        (
+                        [
                             item_array[ord(char) - ord("a")],
-                            self.calculate_cell_coords(x, y),
-                        )
+                            cell_coords,
+                            ]
                     )
                 elif char.isnumeric():
                     # door
                     # TODO Merge doors too
-                    self.tilemap[y][x] = (
+                    self.tilemap[y][x] = [
                         door_array[ord(char) - ord("1")],
-                        self.calculate_cell_coords(x, y),
-                    )
+                        cell_coords,
+                        ]
                     self.doors.append(
-                        (
+                        [
                             door_array[ord(char) - ord("1")],
-                            self.calculate_cell_coords(x, y),
-                        )
+                            cell_coords,
+                            ]
                     )
+                elif char=="^":
+                    self.player_coords=cell_coords
             y += 1
-
+        print(self.walls, len(self.walls))
     def instantiate_all(self):  # DOESNT
         return (
             [w.instantiate(c) for (w, c) in self.walls],
             [e.instantiate(c) for (e, c) in self.enemies],
             [i.instantiate(c) for (i, c) in self.items],
             [d.instantiate(c) for (d, c) in self.doors],
+            Player.instantiate(self.player_coords)
         )
 
     def calculate_cell_coords(self, x, y):
@@ -734,12 +763,6 @@ class GLOOM(Game):
         super().__init__(*args)
 
     def ready(self):
-        self.player = Player.instantiate(
-            Coords(
-                self.screen_center - (self.player_size * 0.5),
-                self.screen_center + (self.player_size * 0.5),
-            )
-        )
         """
         self.enemies = [
             Pistoller.instantiate(
@@ -768,16 +791,18 @@ class GLOOM(Game):
         self.ammo_label = AmmoMeter.instantiate(Coords((840, 510)))
         self.health_label = HealthMeter.instantiate(Coords((120, 510)))
         self.fps_meter = FPSMeter.instantiate(Coords((200, 30)))
-        self.walls, self.enemies, self.items, self.doors = GloomFile("default.gloom", self.screen_size).levels[0].map.instantiate_all()
+        self.walls, self.enemies, self.items, self.doors , self.player= (
+            GloomFile("testlevel.gloom", self.screen_size).levels[0].map.instantiate_all()
+        )
         self.walls.extend(self.doors)
         """
         for wc in self.wall_coords:
             self.walls.append(Wall.instantiate(wc))
         """
-        #self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
+        # self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
         self.kc_indicator = KeycardIndicator.instantiate(Coords((840, 20)))
         self.pline = Pline.instantiate(Coords((500, 20)))
-
+        self.sprites.try_run("check")
     def is_pressed(self, *keys):
         return all(key in self.keys_down for key in keys)
 
@@ -904,9 +929,9 @@ class GameElement(Sprite):
         self._defaultfill = self.kwargs.get("fill", "#000")
         super().__init__(*args, **kwargs)
 
-    def tick(self):
+    def check(self):
         line = (self.center_point, self.game.player.center_point)
-        
+
         if self.game.check_line_collision(*line, ignore=self):
             self.active = False
             if self.seen:
@@ -917,8 +942,9 @@ class GameElement(Sprite):
             self.active = True
             self.seen = True
             self.fill = self.active_color_hook()
-        self.kwargs["outline"]=self.fill
+        self.kwargs["outline"] = self.fill
         self.update(coords=False)  #
+    def tick(self):
         self.sprite_tick()
 
     def active_color_hook(self):
@@ -933,7 +959,6 @@ class GameElement(Sprite):
 
 class HasCollision(GameElement):
     def __init__(self, coords, *args):
-        print(coords)
         self.points = (
             coords[0],
             coords[1],
@@ -997,6 +1022,7 @@ class PlayerOrEnemy(HasCollision):
                 self.coords = ncoords
                 if self.active:
                     self.update()
+        self.on_move()
 
     def hit(self, bullet):
         if not self.dead:
@@ -1017,6 +1043,9 @@ class PlayerOrEnemy(HasCollision):
         pass
 
     def on_die(self):
+        pass
+    
+    def on_move(self):
         pass
 
 
@@ -1162,7 +1191,7 @@ class MediKit(Item):
 
     def on_pickup_item(self):
         self.game.pline.pline("Picked up a medikit")
-        if self.game.player.hp<100:
+        if self.game.player.hp < 100:
             self.game.player.hp = min(self.game.player.hp + 25, 100)
 
     def remembered_color_hook(self):
@@ -1187,7 +1216,7 @@ class StimPack(Item):
 
     def on_pickup_item(self):
         self.game.pline.pline("Picked up a stimpack")
-        if self.game.player.hp<100:
+        if self.game.player.hp < 100:
             self.game.player.hp = min(self.game.player.hp + 10, 100)
 
     def remembered_color_hook(self):
@@ -1251,13 +1280,17 @@ class Wall(HasCollision):
     kwargs = {"outline": "#eee", "fill": "#eee"}
     shape = Shape.RECTANGLE
 
+
 @GLOOM.sprite()
 class Player(PlayerOrEnemy):
     kwargs = {"fill": "#aaf"}
     friendly = True
-    
+
     def on_hit(self):
         print(self.hp)
+
+    def on_move(self):
+        self.game.sprites.try_run("check")
 
 
 class Enemy(PlayerOrEnemy):
@@ -1265,7 +1298,6 @@ class Enemy(PlayerOrEnemy):
     friendly = False
 
     def __init__(self, *args, **kwargs):
-        print(args)
         self.active = False
         self.target = None
         self.seen = False
@@ -1273,7 +1305,7 @@ class Enemy(PlayerOrEnemy):
         self.speed = self._speed
         self.hp = self.maxhp = self._hp
         self.armor = self._armor
-        super().__init__(*args,hp=self.hp, armor=self.armor, **kwargs)
+        super().__init__(*args, hp=self.hp, armor=self.armor, **kwargs)
 
     def remembered_color_hook(self):
         return self._remembered_color
@@ -1287,7 +1319,9 @@ class Enemy(PlayerOrEnemy):
             self.target = self.game.player.center_point
             self.update()
         if self.target is not None:
-            if (self.target - self.center_point).norm > 10 and self.weapon._bullets_left>0:  # arbitrary/placeholder
+            if (
+                self.target - self.center_point
+            ).norm > 10 and self.weapon._bullets_left > 0:  # arbitrary/placeholder
                 movevect = (
                     (self.target - self.center_point).normalize()
                     * self.speed
@@ -1296,19 +1330,25 @@ class Enemy(PlayerOrEnemy):
                 # move in each direction separately to avoid getting stuck on walls
                 self.move(movevect.notdot(Vector2(1, 0)))
                 self.move(movevect.notdot(Vector2(0, 1)))
-            if self.weapon._bullets_left==0 and (self.target - self.center_point).norm<=self.game.weapon.rng:
-                movevect =((self.target - self.center_point).normalize()
+            if (
+                self.weapon._bullets_left == 0
+                and (self.target - self.center_point).norm <= self.game.weapon.rng
+            ):
+                movevect = (
+                    (self.target - self.center_point).normalize()
                     * self.speed
-                    * ((self.target - self.center_point).norm / self.weapon.rng)*-1)
+                    * ((self.target - self.center_point).norm / self.weapon.rng)
+                    * -1
+                )
                 self.move(movevect.notdot(Vector2(1, 0)))
                 self.move(movevect.notdot(Vector2(0, 1)))
-
 
             # only shoot when in range and active
             # the enemies will generally get worse weapons because their aim is better
             if (
                 self.active
-                and (self.target - self.center_point).norm <= self.weapon.rng and self.weapon._bullets_left>0
+                and (self.target - self.center_point).norm <= self.weapon.rng
+                and self.weapon._bullets_left > 0
             ):
                 self.send_event("shoot", self.weapon, self.target, self.center_point)
             else:

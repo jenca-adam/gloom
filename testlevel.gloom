@@ -2,28 +2,42 @@
 @gloomver 1
 @resolution 128x72
 @level 0
-	!name Hellscapes 
-	!items
-		:medikit # a
-		:stimpack # b
-		:speedboost # c
-		:armor # d
-		:shotgunpickup # e
-		:machinegunpickup # f
-		:bluekeycard #g
-		:end
-	!enemies
-		:pistoller # A
-		:shotgunner # B
-		:defender # C
-		:end
-	!doors
-		:bluedoor #1
-		:end
-	!map
-	
-		#######														       
-	!end
+!name Hellscapes 
+!items
+:medikit # a
+:stimpack # b
+:speedboost # c
+:armor # d
+:shotgunpickup # e
+:machinegunpickup # f
+:bluekeycard #g
+:end
+!enemies
+:pistoller # A
+:shotgunner # B
+:defender # C
+:end
+!doors
+:bluedoor #1
+:end
+!map
+
+########    ################
+#      #    #              #
+#  ^   ######              #
+#                   ####   ##########
+#                   #  #            #
+#      ######   #####  #            #
+#      #    #   #####  #   ######   #
+#      #    #          #   #    #
+########    #          #   #    # 
+            ############   ######
+                       #        # 
+                       #        #  
+                       ##########
+
+
+!end           
 @end
                                                                                                                                 
                                                                                                                                  
