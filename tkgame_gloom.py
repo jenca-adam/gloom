@@ -399,8 +399,10 @@ RIGHT = Vector2(1, 0)
 DOWN = Vector2(0, 1)
 ### END
 
+GLOOM_FILE_VER = 1
 WEAPON_PICKUP_CLASSES = {}
 KEYCARDS = {}
+
 
 def intersect(p1, p2, p3, p4):
     x1, y1 = p1
@@ -420,25 +422,28 @@ def intersect(p1, p2, p3, p4):
     y = y1 + ua * (y2 - y1)
     return (x, y)
 
+
 def uncomment(string):
     if not string:
         return None
-    if '#' in string:
-        return string[:string.index('#')].strip()
+    if "#" in string:
+        return string[: string.index("#")].strip()
     return string.strip()
 
+
 def parse_class_array(stream, class_dict):
-    self.cl_array=[]
+    cl_array = []
     while True:
-            line = uncomment(stream.readline())
-            if line is None:
+        line = uncomment(stream.readline())
+        if line is None:
+            break
+        elif line.startswith(":"):
+            item = line.removeprefix(":")
+            if item == "end":
                 break
-            elif line.startswith(":"):
-                item=line.removeprefix(":")
-                if item=="end":
-                    break
-                self.cl_array.append(class_dict[item])
-                
+            cl_array.append(class_dict[item])
+    return cl_array
+
 
 def rgb2hex(r, g, b):
     return f"#{r:02x}{g:02x}{b:02x}"
@@ -514,9 +519,13 @@ class Weapon:
 
 
 class GloomFile:
-    def __init__(self, gloomfilepath, screen_size):
+    def __init__(
+        self,
+        gloomfilepath,
+        screen_size,
+    ):
         self.gloom_properties = {}
-        self.screen_size=Vector2(*screen_size)
+        self.screen_size = Vector2(*screen_size)
         self.levels = []
         with open(gloomfilepath, "r") as self.stream:
             while True:
@@ -526,41 +535,61 @@ class GloomFile:
                 elif line.startswith("@"):
                     cmd, *_val = line.removeprefix("@").split(None, 1)
                     value = _val[0] if _val else None
-                    if cmd=="end":
+                    if cmd == "end":
                         break
-                    elif cmd=="level"
-                        
+                    elif cmd == "level":
+                        self.levels.append(Level(int(value), self.stream, self))
                     else:
-                        self.gloom_properties[cmd]=value
+                        self.gloom_properties[cmd] = value
+                        if cmd == "gloomver":
+                            if int(value) != GLOOM_FILE_VER:
+                                raise ValueError(
+                                    f"unknown gloom file version: {value}!={GLOOM_FILE_VER}"
+                                )
+                            self.gloomver = int(value)
+                        elif cmd == "resolution":
+                            self.resolution = Vector2(*map(int, value.split("x")))
 
 
 class Level:
     def __init__(self, level_id, stream, parent):
-        self.stream=stream
-        self.parent=parent
+        self.stream = stream
+        self.parent = parent
         self.level_properties = {}
-        self.level_id=level_id
+        self.level_id = level_id
         while True:
-                line = uncomment(self.stream.readline())
-                if line is None:
+            line = uncomment(self.stream.readline())
+            if line is None:
+                break
+            elif line.startswith("!"):
+                cmd, *_val = line.removeprefix("!").split(None, 1)
+                value = _val[0] if _val else None
+                if cmd == "end":
                     break
-                elif line.startswith("!"):
-                    cmd, *_val = line.removeprefix("!").split(None, 1)
-                    value = _val[0] if _val else None
-                    if cmd=="end":
-                        break
-                    elif cmd=="items":
-                        self.item_array=parse_class_array(self.stream, ITEM_CLASSES)
-                    elif cmd=="enemies":
-                        self.enemy_array=parse_class_array(self.stream, ENEMY_CLASSES)
-                    elif cmd=="doors":
-                        self.door_array=parse_class_array(self.stream, DOOR_CLASSES)
-                    elif cmd=="map":
-                        self.map=Tilemap(self.parent.resolution, self.parent.screen_size, self.stream, self.enemy_array, self.item_array, self.door_array)
+                elif cmd == "items":
+                    self.item_array = parse_class_array(self.stream, ITEM_CLASSES)
+                elif cmd == "enemies":
+                    self.enemy_array = parse_class_array(self.stream, ENEMY_CLASSES)
+                elif cmd == "doors":
+                    self.door_array = parse_class_array(self.stream, DOOR_CLASSES)
+                elif cmd == "map":
+                    self.map = Tilemap(
+                        self.parent.resolution,
+                        self.parent.screen_size,
+                        self.stream,
+                        self.enemy_array,
+                        self.item_array,
+                        self.door_array,
+                    )
+
+
 class Tilemap:
-    def __init__(self, resolution, screen_size, tilemap, enemy_array, item_array, door_array):
+    def __init__(
+        self, resolution, screen_size, tilemap, enemy_array, item_array, door_array
+    ):
         self.resolution = resolution
-        self.cell_size = resolution.notdot(1 / screen_size)
+        self.cell_size = screen_size.notdot(1 / resolution)
+        print(self.cell_size)
         self.items = []
         self.doors = []
         self.walls = []
@@ -571,52 +600,67 @@ class Tilemap:
         self._tilemap = tilemap
         y = 0
         while True:
-            nl = self._tilemap.readline().strip()
-            if nl=="!end":
-                break
-            if not nl:
+            nl = self._tilemap.readline().rstrip()
+            if nl.strip() == "!end":
                 break
             for x, char in enumerate(nl):
-                if char == ord("#"):
+                if char == "#":
                     # wall
                     # TODO Wall merging to save on collision computation time
                     self.tilemap[y][x] = (Wall, self.calculate_cell_coords(x, y))
-                    self.walls.append((Wall, self.calculate_cell_coords(x,y)))
-                elif ord("A") <= char <= ord("Z"):
+                    print(f"wall@{self.calculate_cell_coords(x, y).coords}")
+                    self.walls.append((Wall, self.calculate_cell_coords(x, y)))
+                elif char.isalpha() and char.isupper():
                     # enemy
                     self.tilemap[y][x] = (
-                        enemy_array[char - ord("A")],
+                        enemy_array[ord(char) - ord("A")],
                         self.calculate_cell_coords(x, y),
                     )
-                    self.enemies.append(( enemy_array[char - ord("A")], self.calculate_cell_coords(x,y)))
-                elif ord("a") <= char <= ord("z"):
+                    self.enemies.append(
+                        (
+                            enemy_array[ord(char) - ord("A")],
+                            self.calculate_cell_coords(x, y),
+                        )
+                    )
+                elif char.isalpha() and char.islower():
                     # item
                     self.tilemap[y][x] = (
-                        item_array[char - ord("a")],
+                        item_array[ord(char) - ord("a")],
                         self.calculate_cell_coords(x, y),
                     )
-                    self.items.append((item_array[char-ord("a")],self.calculate_cell_coords(x,y)))
-                elif ord("1") <= char <= ord("9"):
-                    #door
-                    #TODO Merge doors too
+                    self.items.append(
+                        (
+                            item_array[ord(char) - ord("a")],
+                            self.calculate_cell_coords(x, y),
+                        )
+                    )
+                elif char.isnumeric():
+                    # door
+                    # TODO Merge doors too
                     self.tilemap[y][x] = (
-                        door_array[char - ord("1")],
+                        door_array[ord(char) - ord("1")],
                         self.calculate_cell_coords(x, y),
                     )
-                    self.doors.append((door_array[char-ord("1")],self.calculate_cell_coords(x,y)))
+                    self.doors.append(
+                        (
+                            door_array[ord(char) - ord("1")],
+                            self.calculate_cell_coords(x, y),
+                        )
+                    )
+            y += 1
 
-
-    def instantiate_all(self): #DOESNT
-        for row in self.tilemap:
-            for element in row:
-                if element is not None:
-                    elclass, elargs = element
-                    elclass.instantiate(elargs)
+    def instantiate_all(self):  # DOESNT
+        return (
+            [w.instantiate(c) for (w, c) in self.walls],
+            [e.instantiate(c) for (e, c) in self.enemies],
+            [i.instantiate(c) for (i, c) in self.items],
+            [d.instantiate(c) for (d, c) in self.doors],
+        )
 
     def calculate_cell_coords(self, x, y):
         return Coords(
-            Vector2(x, y) * self.cell_size,
-            (Vector2(x, y) + Vector2(1, 1)) * self.cell_size,
+            Vector2(x, y).notdot(self.cell_size),
+            (Vector2(x, y) + Vector2(1, 1)).notdot(self.cell_size),
         )
 
 
@@ -645,6 +689,20 @@ class Shotgun(Weapon):
     rate = 0
     reload_rate = 100
 
+
+class MachineGun(Weapon):
+    rng = 600
+    dmg = 5
+    pierce = 60
+    speed = 12
+    spread = 0
+    bullets_per_mg = 50
+    bullets_per_shot = 1
+    bullet_size = 1
+    rate = 5
+    reload_rate = 200
+
+
 class GLOOM(Game):
     screen_size = Vector2(960, 540)
     screen_color = "#000"
@@ -652,6 +710,7 @@ class GLOOM(Game):
     fps = 120
     player_size = Vector2(20, 20)
     enemy_size = Vector2(20, 20)
+    """
     wall_coords = (
         # wall 1 - starting room NE wall (doorway)
         Coords(
@@ -663,7 +722,7 @@ class GLOOM(Game):
             (screen_size.x * (1 / 4), screen_size.y * (1 / 3)),
             (screen_size.x * (3 / 4), screen_size.y * (53 / 150)),
         ),
-    )
+    )"""
 
     def __init__(self, *args):
         self.keys_down = set()
@@ -672,7 +731,7 @@ class GLOOM(Game):
         self.bullets = []
         self.mouse_pos = (0, 0)
         self.mouse_held = False
-        self.weapon = Shotgun(200)
+        self.weapon = MachineGun(200)
         self.weapons = [self.weapon]
         self.known_weapons = [w.__class__ for w in self.weapons]
         self.curr_weapon_index = 0
@@ -685,6 +744,7 @@ class GLOOM(Game):
                 self.screen_center + (self.player_size * 0.5),
             )
         )
+        """
         self.enemies = [
             Pistoller.instantiate(
                 Coords(
@@ -707,14 +767,18 @@ class GLOOM(Game):
                 )
             ),
             BlueKeyCard(Coords((0, 0), (20, 20))),
-        ]
+        ]"""
 
         self.ammo_label = AmmoMeter.instantiate(Coords((840, 510)))
         self.health_label = HealthMeter.instantiate(Coords((120, 510)))
         self.fps_meter = FPSMeter.instantiate(Coords((200, 30)))
+        self.walls, self.enemies, self.items, self.doors = GloomFile("default.gloom", self.screen_size).levels[0].map.instantiate_all()
+        self.walls.extend(self.doors)
+        """
         for wc in self.wall_coords:
             self.walls.append(Wall.instantiate(wc))
-        self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
+        """
+        #self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
         self.kc_indicator = KeycardIndicator.instantiate(Coords((840, 20)))
         self.pline = Pline.instantiate(Coords((500, 20)))
 
@@ -858,6 +922,7 @@ class GameElement(Sprite):
             self.active = True
             self.seen = True
             self.fill = self.active_color_hook()
+        self.kwargs["outline"]=self.fill
         self.update(coords=False)  #
         self.sprite_tick()
 
@@ -945,7 +1010,7 @@ class PlayerOrEnemy(HasCollision):
             self.armor -= bullet.dmg * armor_damage_ratio
             self.armor = max(self.armor, 0)
             if self.hp <= 0:
-                self.dead=True
+                self.dead = True
                 print("died")
                 self.on_die()
                 self.send_event("die")
@@ -966,11 +1031,12 @@ class Item(HasCollision):
     def __init__(self, *args, **kwargs):
         self.picked_up = False
         super().__init__(*args, **kwargs)
-    
+
     def on_pickup(self):
         if not self.picked_up:
             self.on_pickup_item()
-            self.picked_up=True
+            self.picked_up = True
+
 
 class WeaponPickupItem(Item):
     kwargs = {"fill": "#a50"}
@@ -1012,7 +1078,8 @@ class Door(HasCollision):
 
 class KeyCard(Item):
     def __init_subclass__(cls):
-        KEYCARDS[cls.keycardid]=cls
+        KEYCARDS[cls.keycardid] = cls
+
     def on_pickup_item(self):
         self.game.pline.pline(f"Picked up a {self.keycardname} keycard")
         self.game.keycards.add(self.keycardid)
@@ -1068,14 +1135,66 @@ class PistolPickupItem(WeaponPickupItem):
 
 
 @GLOOM.sprite()
+class ShotgunPickupItem(WeaponPickupItem):
+    weapclass = Shotgun
+
+
+@GLOOM.sprite()
+class MachineGunPickupItem(WeaponPickupItem):
+    weapclass = MachineGun
+
+
+@GLOOM.sprite()
+class SpeedBooster(Item):
+    kwargs = {"fill": "#f0f"}
+
+    def on_pickup_item(self):
+        self.game.pline.pline("Picked up a speed boost")
+        self._reset_to = self.game.player_speed
+        self.game.player_speed += 1
+        self.game.after(20000, self._reset_player_speed)
+
+    def _reset_player_speed(self):
+        self.game.player.speed = self._reset_to
+
+    def remembered_color_hook(self):
+        return "#a0a"
+
+
+@GLOOM.sprite()
 class MediKit(Item):
     kwargs = {"fill": "#0f0"}
 
     def on_pickup_item(self):
         self.game.pline.pline("Picked up a medikit")
-        self.game.player.hp=min(self.game.player.hp+25, 100)
+        self.game.player.hp = min(self.game.player.hp + 25, 100)
+
     def remembered_color_hook(self):
         return "#0a0"
+
+
+@GLOOM.sprite()
+class Armor(Item):
+    kwargs = {"fill": "#888"}
+
+    def on_pickup_item(self):
+        self.game.pline.pline("Picked up the armor")
+        self.game.player.armor = 100
+
+    def remembered_color_hook(self):
+        return "#333"
+
+
+@GLOOM.sprite()
+class StimPack(Item):
+    kwargs = {"fill": "#070"}
+
+    def on_pickup_item(self):
+        self.game.pline.pline("Picked up a stimpack")
+        self.game.player.hp = min(self.game.player.hp + 10, 100)
+
+    def remembered_color_hook(self):
+        return "#040"
 
 
 @GLOOM.sprite()
@@ -1093,10 +1212,12 @@ class AmmoMeter(Label):
     kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#00e"}
     fmt = "{self.game.weapon.__class__.__name__}:{self.game.weapon._bullets_left_in_magazine}|{self.game.weapon._bullets_left}{'(R)' if self.game.weapon._until_reload>0 else ''}"
 
+
 @GLOOM.sprite()
 class KeycardIndicator(Label):
     kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#ea0"}
     fmt = "Keycards: {','.join(KEYCARDS[kc].keycardname for kc in self.game.keycards)}"
+
 
 @GLOOM.sprite()
 class HealthMeter(Label):
@@ -1132,7 +1253,6 @@ class HealthMeter(Label):
 class Wall(HasCollision):
     kwargs = {"outline": "#eee", "fill": "#eee"}
     shape = Shape.RECTANGLE
-
 
 @GLOOM.sprite()
 class Player(PlayerOrEnemy):
@@ -1219,6 +1339,53 @@ class Pistoller(Enemy):
 
 
 @GLOOM.sprite()
+class Shotgunner(Enemy):
+    _weapon = Shotgun
+    _ammo = 25
+    _speed = 1
+    _hp = 75
+    _armor = 0
+    _remembered_color = "#aa0"
+    _active_colors = [
+        "#f50",
+        "#f61",
+        "#f72",
+        "#f83",
+        "#f94",
+        "#fa5",
+        "#fb6",
+        "#fc7",
+        "#fd8",
+        "#fe9",
+        "#ffa",
+    ]
+
+
+@GLOOM.sprite()
+class Defender(Enemy):
+    _weapon = Pistol
+    _ammo = 100
+    _speed = 0
+    _hp = 200
+    _armor = 100
+    _remembered_color = "#aaa"
+    _active_colors = [
+        "#d66",
+        "#d77",
+        "#d88",
+        "#d99",
+        "#daa",
+        "#dbb",
+        "#dcc",
+        "#fdd",
+        "#edd",
+        "#dcc",
+        "#cbb",
+        "#bbb",
+    ]
+
+
+@GLOOM.sprite()
 class Bullet(Sprite):
     shape = Shape.RECTANGLE
     kwargs = {"outline": "#ccc", "fill": "#ccc"}
@@ -1251,5 +1418,23 @@ class Bullet(Sprite):
         self.update()
 
 
+ITEM_CLASSES = {
+    "medikit": MediKit,
+    "stimpack": StimPack,
+    "speedboost": SpeedBooster,
+    "armor": Armor,
+    "shotgunpickup": ShotgunPickupItem,
+    "machinegunpickup": MachineGunPickupItem,
+    "bluekeycard": BlueKeyCard,
+}
+
+ENEMY_CLASSES = {
+    "pistoller": Pistoller,
+    "shotgunner": Shotgunner,
+    "defender": Defender,
+}
+DOOR_CLASSES = {
+    "bluedoor": BlueDoor,
+}
 if __name__ == "__main__":
     GLOOM().start()
