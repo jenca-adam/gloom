@@ -234,7 +234,7 @@ class Sprites:
     def try_run(self, funname):
         for sprite in self.sprites:
             if hasattr(sprite, funname):
-                getattr(sprite,funname)()
+                getattr(sprite, funname)()
 
 
 class Timer:
@@ -478,7 +478,7 @@ class Weapon:
         self._bullets_left_in_magazine += self.bullets_per_mg
         # print("reload", self._bullets_left, self._bullets_left_in_magazine)
 
-    def shoot(self, source, target, friendly):
+    def shoot(self, source, target, friendly, acc):
         # print("shoot", source, target, target - source)
         self._until_shoot = self.rate
         if self.bullets_per_shot > self._bullets_left_in_magazine:
@@ -486,7 +486,7 @@ class Weapon:
             return
         self._bullets_left_in_magazine -= self.bullets_per_shot
         self._bullets_left -= self.bullets_per_shot
-        general_direction_vector = (target - source).normalize()
+        general_direction_vector = (target - source).normalize().rotate_around_origin(random.randint(-acc,acc))
         bullargs = []
         for angle in self._bullet_angles:
             bullargs.append(
@@ -516,8 +516,8 @@ class Weapon:
                 self.reload()
             return []
         elif self._until_shoot == self._until_reload == 0:
-            src, dst, fnd = shoot
-            return self.shoot(src, dst, fnd)
+            src, dst, fnd, acc = shoot
+            return self.shoot(src, dst, fnd, acc)
         return []
 
 
@@ -607,30 +607,40 @@ class Tilemap:
         y = 0
 
         while True:
-            nl = self._tilemap.readline().rstrip().replace("\t","    ")#important shit
+            nl = (
+                self._tilemap.readline().rstrip().replace("\t", "    ")
+            )  # important shit
             if nl.strip() == "!end":
                 break
             for x, char in enumerate(nl):
-                cell_coords=self.calculate_cell_coords(x,y)
+                cell_coords = self.calculate_cell_coords(x, y)
                 if char == "#":
                     # wall
-                    if x>0 and (x-1,y) in wall_indices and (x-1,y) not in merged_vertical:
-                        print("hmerge",x,y)
-                        wall_indices[(x,y)]=wall_indices[(x-1,y)]
-                        self.walls[wall_indices[(x-1,y)]][1][1]=cell_coords[1]
-                        merged_horizontal.add((x,y))
-                        merged_horizontal.add((x-1,y))
-                    elif y>0 and (x,y-1) in wall_indices and (x,y-1) not in merged_horizontal:
-                        print("vmerge",x,y)
-                        wall_indices[(x,y)]=wall_indices[(x,y-1)]
-                        self.walls[wall_indices[(x,y-1)]][1][1]=cell_coords[1]
-                        merged_vertical.add((x,y))
-                        merged_vertical.add((x,y-1))
+                    if (
+                        x > 0
+                        and (x - 1, y) in wall_indices
+                        and (x - 1, y) not in merged_vertical
+                    ):
+                        print("hmerge", x, y)
+                        wall_indices[(x, y)] = wall_indices[(x - 1, y)]
+                        self.walls[wall_indices[(x - 1, y)]][1][1] = cell_coords[1]
+                        merged_horizontal.add((x, y))
+                        merged_horizontal.add((x - 1, y))
+                    elif (
+                        y > 0
+                        and (x, y - 1) in wall_indices
+                        and (x, y - 1) not in merged_horizontal
+                    ):
+                        print("vmerge", x, y)
+                        wall_indices[(x, y)] = wall_indices[(x, y - 1)]
+                        self.walls[wall_indices[(x, y - 1)]][1][1] = cell_coords[1]
+                        merged_vertical.add((x, y))
+                        merged_vertical.add((x, y - 1))
 
                     else:
-                        print("new",x,y)
+                        print("new", x, y)
                         self.tilemap[y][x] = [Wall, cell_coords]
-                        wall_indices[(x,y)]=len(self.walls)
+                        wall_indices[(x, y)] = len(self.walls)
                         self.walls.append([Wall, cell_coords])
                 elif char.isalpha() and char.isupper():
                     # enemy
@@ -642,19 +652,19 @@ class Tilemap:
                         [
                             enemy_array[ord(char) - ord("A")],
                             cell_coords,
-                            ]
+                        ]
                     )
                 elif char.isalpha() and char.islower():
                     # item
                     self.tilemap[y][x] = [
                         item_array[ord(char) - ord("a")],
                         cell_coords,
-                        ]
+                    ]
                     self.items.append(
                         [
                             item_array[ord(char) - ord("a")],
                             cell_coords,
-                            ]
+                        ]
                     )
                 elif char.isnumeric():
                     # door
@@ -662,24 +672,25 @@ class Tilemap:
                     self.tilemap[y][x] = [
                         door_array[ord(char) - ord("1")],
                         cell_coords,
-                        ]
+                    ]
                     self.doors.append(
                         [
                             door_array[ord(char) - ord("1")],
                             cell_coords,
-                            ]
+                        ]
                     )
-                elif char=="^":
-                    self.player_coords=cell_coords
+                elif char == "^":
+                    self.player_coords = cell_coords
             y += 1
         print(self.walls, len(self.walls))
+
     def instantiate_all(self):  # DOESNT
         return (
             [w.instantiate(c) for (w, c) in self.walls],
             [e.instantiate(c) for (e, c) in self.enemies],
             [i.instantiate(c) for (i, c) in self.items],
             [d.instantiate(c) for (d, c) in self.doors],
-            Player.instantiate(self.player_coords)
+            Player.instantiate(self.player_coords),
         )
 
     def calculate_cell_coords(self, x, y):
@@ -791,8 +802,10 @@ class GLOOM(Game):
         self.ammo_label = AmmoMeter.instantiate(Coords((840, 510)))
         self.health_label = HealthMeter.instantiate(Coords((120, 510)))
         self.fps_meter = FPSMeter.instantiate(Coords((200, 30)))
-        self.walls, self.enemies, self.items, self.doors , self.player= (
-            GloomFile("testlevel.gloom", self.screen_size).levels[0].map.instantiate_all()
+        self.walls, self.enemies, self.items, self.doors, self.player = (
+            GloomFile("testlevel.gloom", self.screen_size)
+            .levels[0]
+            .map.instantiate_all()
         )
         self.walls.extend(self.doors)
         """
@@ -803,6 +816,7 @@ class GLOOM(Game):
         self.kc_indicator = KeycardIndicator.instantiate(Coords((840, 20)))
         self.pline = Pline.instantiate(Coords((500, 20)))
         self.sprites.try_run("check")
+
     def is_pressed(self, *keys):
         return all(key in self.keys_down for key in keys)
 
@@ -820,7 +834,7 @@ class GLOOM(Game):
             self.player.move(RIGHT * self.player_speed * deltamult)
         if self.mouse_held:
             bullargss = self.weapon.tick(
-                (self.player.center_point, self.mouse_pos, True)
+                (self.player.center_point, self.mouse_pos, True, 1)
             )
             for bullargs in bullargss:
                 self.bullets.append(Bullet.instantiate(*bullargs))
@@ -880,8 +894,8 @@ class GLOOM(Game):
             self.destroy()
 
     @Game.event_handler("shoot")
-    def _on_shoot(self, who, with_what, whom, from_where):
-        bullargss = with_what.tick((from_where, whom, False))
+    def _on_shoot(self, who, with_what, whom, from_where, how_accurate=0):
+        bullargss = with_what.tick((from_where, whom, False, how_accurate))
         for bullargs in bullargss:
             self.bullets.append(Bullet.instantiate(*bullargs))
 
@@ -944,6 +958,7 @@ class GameElement(Sprite):
             self.fill = self.active_color_hook()
         self.kwargs["outline"] = self.fill
         self.update(coords=False)  #
+
     def tick(self):
         self.sprite_tick()
 
@@ -1003,7 +1018,7 @@ class HasCollision(GameElement):
 class PlayerOrEnemy(HasCollision):
     shape = Shape.RECTANGLE
 
-    def __init__(self, coords, hp=10000, armor=0, *args, **kwargs):
+    def __init__(self, coords, hp=100, armor=0, *args, **kwargs):
         self.hp = hp
         self.armor = armor
         self.active = True
@@ -1044,7 +1059,7 @@ class PlayerOrEnemy(HasCollision):
 
     def on_die(self):
         pass
-    
+
     def on_move(self):
         pass
 
@@ -1301,6 +1316,7 @@ class Enemy(PlayerOrEnemy):
         self.active = False
         self.target = None
         self.seen = False
+        self.accuracy = self._accuracy
         self.weapon = self._weapon(self._ammo)
         self.speed = self._speed
         self.hp = self.maxhp = self._hp
@@ -1350,7 +1366,7 @@ class Enemy(PlayerOrEnemy):
                 and (self.target - self.center_point).norm <= self.weapon.rng
                 and self.weapon._bullets_left > 0
             ):
-                self.send_event("shoot", self.weapon, self.target, self.center_point)
+                self.send_event("shoot", self.weapon, self.target, self.center_point, self.accuracy)
             else:
                 self.weapon.tick()  # allow cooldown
 
@@ -1364,7 +1380,8 @@ class Enemy(PlayerOrEnemy):
 @GLOOM.sprite()
 class Pistoller(Enemy):
     _weapon = Pistol
-    _ammo = 100
+    _ammo = 30
+    _accuracy = 3
     _speed = 1.5
     _hp = 100
     _armor = 0
@@ -1389,6 +1406,7 @@ class Shotgunner(Enemy):
     _weapon = Shotgun
     _ammo = 100
     _speed = 1
+    _accuracy = 2
     _hp = 75
     _armor = 0
     _remembered_color = "#aa0"
@@ -1413,6 +1431,7 @@ class Defender(Enemy):
     _ammo = 200
     _speed = 0
     _hp = 100
+    _accuracy = 10
     _armor = 100
     _remembered_color = "#aaa"
     _active_colors = [

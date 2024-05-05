@@ -1,6 +1,6 @@
 # this file contains the descriptions of the 3 default levels
 @gloomver 1
-@resolution 128x72
+@resolution 64x36
 @level 0
 !name Hellscapes 
 !items
@@ -23,14 +23,14 @@
 !map
 
 ########    ################
-#      #    #              #
+#e    e#    #              #
 #  ^   ######              #
-#                   ####   ##########
-#                   #  #            #
+#        A          ####   ##########
+#        A          #BB#            #
 #      ######   #####  #            #
 #      #    #   #####  #   ######   #
-#      #    #          #   #    #
-########    #          #   #    # 
+#e    e#    #          #   #    #
+########    #        aa#   #    # 
             ############   ######
                        #        # 
                        #        #  
