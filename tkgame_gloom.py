@@ -7,7 +7,6 @@ import random
 import itertools
 import math
 import cmath
-import io
 
 """
 This program contains a wrapper around tkinter's functions to make it less of a pain to use.
@@ -137,6 +136,7 @@ class Sprite:
     name = "Sprite"
     shape = None
     fill = None
+    tag = None
     kwargs = {}
 
     def __init__(self, coords, shape=None, **kwargs):
@@ -144,6 +144,8 @@ class Sprite:
         self.kwargs = self.kwargs.copy()
         self.kwargs.update(kwargs)
         self.kwargs["fill"] = kwargs.get("fill") or self.fill
+        if self.tag is not None:
+            self.kwargs["tag"]=self.tag
         self.shape = shape or self.shape
         self.timer = self._add()
         self.render()
@@ -816,6 +818,9 @@ class GLOOM(Game):
         self.kc_indicator = KeycardIndicator.instantiate(Coords((840, 20)))
         self.pline = Pline.instantiate(Coords((500, 20)))
         self.sprites.try_run("check")
+        self.canvas.tag_lower("wall")
+        self.canvas.tag_lower("item")
+        self.canvas.tag_lower("enemy")
 
     def is_pressed(self, *keys):
         return all(key in self.keys_down for key in keys)
@@ -1066,7 +1071,7 @@ class PlayerOrEnemy(HasCollision):
 
 class Item(HasCollision):
     shape = Shape.OVAL
-
+    tag = "item"
     def __init__(self, *args, **kwargs):
         self.picked_up = False
         super().__init__(*args, **kwargs)
@@ -1104,6 +1109,7 @@ class WeaponPickupItem(Item):
 
 class Door(HasCollision):
     shape = Shape.RECTANGLE
+    tag="wall"
 
     def on_collide(self, sprite):
         # print("coll")
@@ -1167,7 +1173,23 @@ class BlueKeyCard(KeyCard):
     def remembered_color_hook(self):
         return "#449"
 
+@GLOOM.sprite()
+class RedDoor(Door):
+    keycardid = 2
+    kwargs = {"fill": "#d33"}
 
+    def remembered_color_hook(self):
+        return "#944"
+
+
+@GLOOM.sprite()
+class RedKeyCard(KeyCard):
+    keycardid = 2
+    keycardname = "red"
+    kwargs = {"fill": "#d33"}
+
+    def remembered_color_hook(self):
+        return "#944"
 @GLOOM.sprite()
 class PistolPickupItem(WeaponPickupItem):
     weapclass = Pistol
@@ -1257,7 +1279,7 @@ class AmmoMeter(Label):
 @GLOOM.sprite()
 class KeycardIndicator(Label):
     kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#ea0"}
-    fmt = "Keycards: {','.join(KEYCARDS[kc].keycardname for kc in self.game.keycards)}"
+    fmt = "Keycards: {','.join(KEYCARDS[kc].keycardname[0] for kc in self.game.keycards)}"
 
 
 @GLOOM.sprite()
@@ -1293,6 +1315,7 @@ class HealthMeter(Label):
 @GLOOM.sprite()
 class Wall(HasCollision):
     kwargs = {"outline": "#eee", "fill": "#eee"}
+    tag="wall"
     shape = Shape.RECTANGLE
 
 
@@ -1311,6 +1334,7 @@ class Player(PlayerOrEnemy):
 class Enemy(PlayerOrEnemy):
     kwargs = {"fill": "#000"}
     friendly = False
+    tag = "enemy"
 
     def __init__(self, *args, **kwargs):
         self.active = False
@@ -1491,8 +1515,8 @@ ITEM_CLASSES = {
     "shotgunpickup": ShotgunPickupItem,
     "machinegunpickup": MachineGunPickupItem,
     "bluekeycard": BlueKeyCard,
+    "redkeycard": RedKeyCard,
 }
-
 ENEMY_CLASSES = {
     "pistoller": Pistoller,
     "shotgunner": Shotgunner,
@@ -1500,6 +1524,7 @@ ENEMY_CLASSES = {
 }
 DOOR_CLASSES = {
     "bluedoor": BlueDoor,
+    "reddoor": RedDoor,
 }
 if __name__ == "__main__":
     GLOOM().start()
