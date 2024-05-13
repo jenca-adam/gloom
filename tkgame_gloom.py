@@ -706,7 +706,7 @@ class Pistol(Weapon):
     rng = 500
     dmg = 10
     pierce = 50
-    speed = 10
+    speed = 20
     spread = 0
     bullets_per_mg = 15
     bullets_per_shot = 1
@@ -719,7 +719,7 @@ class Shotgun(Weapon):
     rng = 400
     dmg = 20
     pierce = 40
-    speed = 15
+    speed = 30
     spread = 12
     bullets_per_mg = 5
     bullets_per_shot = 5
@@ -732,7 +732,7 @@ class MachineGun(Weapon):
     rng = 600
     dmg = 5
     pierce = 60
-    speed = 12
+    speed = 32
     spread = 0
     bullets_per_mg = 50
     bullets_per_shot = 1
@@ -742,10 +742,11 @@ class MachineGun(Weapon):
 
 
 class GLOOM(Game):
-    screen_size = Vector2(960, 540)
+    screen_size = Vector2(1920, 1080)
+    fullscreen=True
     screen_color = "#000"
-    player_speed = 2
-    fps = 120
+    player_speed = 6
+    fps = 60
     player_size = Vector2(20, 20)
     enemy_size = Vector2(20, 20)
     """
@@ -801,9 +802,9 @@ class GLOOM(Game):
             BlueKeyCard(Coords((0, 0), (20, 20))),
         ]"""
 
-        self.ammo_label = AmmoMeter.instantiate(Coords((840, 510)))
-        self.health_label = HealthMeter.instantiate(Coords((120, 510)))
-        self.fps_meter = FPSMeter.instantiate(Coords((200, 30)))
+        self.ammo_label = AmmoMeter.instantiate(Coords((1750, 1060)))
+        self.health_label = HealthMeter.instantiate(Coords((120, 1060)))
+        self.fps_meter = FPSMeter.instantiate(Coords((1520, 30)))
         self.walls, self.enemies, self.items, self.doors, self.player = (
             GloomFile("testlevel.gloom", self.screen_size)
             .levels[0]
@@ -815,8 +816,8 @@ class GLOOM(Game):
             self.walls.append(Wall.instantiate(wc))
         """
         # self.walls.append(BlueDoor((Coords((500, 200), (510, 300)))))
-        self.kc_indicator = KeycardIndicator.instantiate(Coords((840, 20)))
-        self.pline = Pline.instantiate(Coords((500, 20)))
+        self.kc_indicator = KeycardIndicator.instantiate(Coords((1750, 20)))
+        self.pline = Pline.instantiate(Coords((900, 20)))
         self.sprites.try_run("check")
         self.canvas.tag_lower("wall")
         self.canvas.tag_lower("item")
@@ -1345,6 +1346,7 @@ class Enemy(PlayerOrEnemy):
         self.speed = self._speed
         self.hp = self.maxhp = self._hp
         self.armor = self._armor
+        self._ticks_wo_player=0
         super().__init__(*args, hp=self.hp, armor=self.armor, **kwargs)
 
     def remembered_color_hook(self):
@@ -1352,12 +1354,18 @@ class Enemy(PlayerOrEnemy):
 
     def active_color_hook(self):
         return self._active_colors[int(self.hp / (self.maxhp / 10))]
-
+    def forget(self):
+        self.target=None
     def sprite_tick(self):
         line = (self.center_point, self.game.player.center_point)
+        if self._ticks_wo_player==900: # 15 secs
+            self.target=None
         if self.active:
+            self._ticks_wo_player=0
             self.target = self.game.player.center_point
             self.update()
+        else:
+            self._ticks_wo_player+=1
         if self.target is not None:
             if (
                 self.target - self.center_point
@@ -1406,8 +1414,8 @@ class Pistoller(Enemy):
     _weapon = Pistol
     _ammo = 30
     _accuracy = 3
-    _speed = 1.5
-    _hp = 100
+    _speed = 3
+    _hp = 50
     _armor = 0
     _remembered_color = "#a00"
     _active_colors = [
@@ -1429,9 +1437,9 @@ class Pistoller(Enemy):
 class Shotgunner(Enemy):
     _weapon = Shotgun
     _ammo = 100
-    _speed = 1
+    _speed = 2
     _accuracy = 2
-    _hp = 75
+    _hp = 40
     _armor = 0
     _remembered_color = "#aa0"
     _active_colors = [
