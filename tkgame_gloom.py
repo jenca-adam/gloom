@@ -146,7 +146,7 @@ class Sprite:
         self.kwargs.update(kwargs)
         self.kwargs["fill"] = kwargs.get("fill") or self.fill
         if self.tag is not None:
-            self.kwargs["tag"]=self.tag
+            self.kwargs["tag"] = self.tag
         self.shape = shape or self.shape
         self.timer = self._add()
         self.render()
@@ -279,8 +279,10 @@ class Game:
         self.root = tkinter.Tk()
         if self.fullscreen:
             self.root.attributes("-fullscreen", True)
-        if self.screen_size==None:
-            self.screen_size=Vector2(self.root.winfo_screenwidth(), self.root.winfo_screenheight())
+        if self.screen_size == None:
+            self.screen_size = Vector2(
+                self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+            )
         self.timers = []
         self.started = False
         self._time = time.perf_counter()
@@ -289,7 +291,7 @@ class Game:
         self.canvas.pack()
         self.sprites = Sprites()
         self.event_queue = queue.Queue()
-        
+
         self.canvas_wrapper = TkWrapper(self.canvas)
         self.canvas["width"], self.canvas["height"] = self.screen_size
         self.screen_size = Vector2(*self.screen_size)
@@ -354,6 +356,7 @@ class Game:
     def remove_sprite(self, sprite):
         if sprite in self.sprites.sprites:
             self.sprites.sprites.remove(sprite)
+
     @classmethod
     def add_event_handler(self, event_type, func):
         self._event_handlers[event_type] = func
@@ -390,6 +393,7 @@ class Game:
             return timer
 
         return _decorator
+
     def run_timers(self):
         print(len(self.timers), len(self.sprites.sprites))
         for timer in self.timers:
@@ -404,7 +408,6 @@ class Game:
     @property
     def screen_center(self):
         return self.screen_size * 0.5
-    
 
 
 UP = Vector2(0, -1)
@@ -417,6 +420,7 @@ GLOOM_FILE_VER = 1
 WEAPON_PICKUP_CLASSES = {}
 KEYCARDS = {}
 NSTEPS = 1
+
 
 def intersect(p1, p2, p3, p4):
     x1, y1 = p1
@@ -497,7 +501,11 @@ class Weapon:
             return
         self._bullets_left_in_magazine -= self.bullets_per_shot
         self._bullets_left -= self.bullets_per_shot
-        general_direction_vector = (target - source).normalize().rotate_around_origin(random.randint(-acc,acc))
+        general_direction_vector = (
+            (target - source)
+            .normalize()
+            .rotate_around_origin(random.randint(-acc, acc))
+        )
         bullargs = []
         for angle in self._bullet_angles:
             bullargs.append(
@@ -544,7 +552,7 @@ class GloomFile:
         with open(gloomfilepath, "r") as self.stream:
             while True:
                 line = uncomment(self.stream.readline())
-                print("gl",line)
+                print("gl", line)
                 if line is None:
                     break
                 elif line.startswith("@"):
@@ -579,10 +587,10 @@ class Level:
                 break
             elif line.startswith("!"):
                 cmd, *_val = line.removeprefix("!").split(None, 1)
-                print("ll",cmd)
+                print("ll", cmd)
                 value = _val[0] if _val else None
                 if value is not None:
-                    self.level_properties[cmd]=value
+                    self.level_properties[cmd] = value
                 if cmd == "end":
                     break
                 elif cmd == "items":
@@ -626,25 +634,23 @@ class Tilemap:
         merged_vertical = set()
         merged_horizontal = set()
         wall_indices = {}
-        door_merged_vertical= set()
-        door_merged_horizontal=set()
-        door_indices={}
+        door_merged_vertical = set()
+        door_merged_horizontal = set()
+        door_indices = {}
         y = 0
 
         while True:
-            nl = (
-                self._tilemap.readline().rstrip().expandtabs()
-            )  # important shit
-            print("tl",nl.strip())
+            nl = self._tilemap.readline().rstrip().expandtabs()  # important shit
+            print("tl", nl.strip())
             if nl.strip() == "!end":
                 print("tlend")
                 break
             for x, char in enumerate(nl):
-                print(x,y)
-                if x>64:
+                print(x, y)
+                if x > 64:
                     continue
                 cell_coords = self.calculate_cell_coords(x, y)
-                
+
                 if char == "#":
                     # wall
                     if (
@@ -652,7 +658,7 @@ class Tilemap:
                         and (x - 1, y) in wall_indices
                         and (x - 1, y) not in merged_vertical
                     ):
-                        #print("hmerge", x, y)
+                        # print("hmerge", x, y)
                         wall_indices[(x, y)] = wall_indices[(x - 1, y)]
                         self.walls[wall_indices[(x - 1, y)]][1][1] = cell_coords[1]
                         merged_horizontal.add((x, y))
@@ -662,14 +668,14 @@ class Tilemap:
                         and (x, y - 1) in wall_indices
                         and (x, y - 1) not in merged_horizontal
                     ):
-                        #print("vmerge", x, y)
+                        # print("vmerge", x, y)
                         wall_indices[(x, y)] = wall_indices[(x, y - 1)]
                         self.walls[wall_indices[(x, y - 1)]][1][1] = cell_coords[1]
                         merged_vertical.add((x, y))
                         merged_vertical.add((x, y - 1))
 
                     else:
-                        #print("new", x, y)
+                        # print("new", x, y)
                         self.tilemap[y][x] = [Wall, cell_coords]
                         wall_indices[(x, y)] = len(self.walls)
                         self.walls.append([Wall, cell_coords])
@@ -700,13 +706,13 @@ class Tilemap:
                 elif char.isnumeric():
                     # door
                     # TODO Merge doors too
-                     # wall
+                    # wall
                     if (
                         x > 0
                         and (x - 1, y) in door_indices
                         and (x - 1, y) not in door_merged_vertical
                     ):
-                        #print("hmerge", x, y)
+                        # print("hmerge", x, y)
                         door_indices[(x, y)] = door_indices[(x - 1, y)]
                         self.doors[door_indices[(x - 1, y)]][1][1] = cell_coords[1]
                         door_merged_horizontal.add((x, y))
@@ -716,17 +722,17 @@ class Tilemap:
                         and (x, y - 1) in door_indices
                         and (x, y - 1) not in merged_horizontal
                     ):
-                        #print("vmerge", x, y)
+                        # print("vmerge", x, y)
                         door_indices[(x, y)] = door_indices[(x, y - 1)]
                         self.doors[door_indices[(x, y - 1)]][1][1] = cell_coords[1]
                         door_merged_vertical.add((x, y))
                         door_merged_vertical.add((x, y - 1))
 
                     else:
-                        #print("new", x, y)
-                        self.tilemap[y][x] = [door_array[int(char)-1], cell_coords]
+                        # print("new", x, y)
+                        self.tilemap[y][x] = [door_array[int(char) - 1], cell_coords]
                         door_indices[(x, y)] = len(self.doors)
-                        self.doors.append([door_array[int(char)-1], cell_coords])
+                        self.doors.append([door_array[int(char) - 1], cell_coords])
                 elif char == "^":
                     self.player_coords = cell_coords
                 elif char == "_":
@@ -788,6 +794,7 @@ class MachineGun(Weapon):
     rate = 5
     reload_rate = 75
 
+
 class RocketLauncher(Weapon):
     rng = 800
     dmg = 200
@@ -800,6 +807,7 @@ class RocketLauncher(Weapon):
     rate = 0
     reload_rate = 150
 
+
 class DoubleBarrelShotgun(Weapon):
     rng = 400
     dmg = 15
@@ -808,9 +816,10 @@ class DoubleBarrelShotgun(Weapon):
     spread = 20
     bullets_per_mg = 7
     bullets_per_shot = 7
-    bullet_size=2
+    bullet_size = 2
     rate = 0
     reload_rate = 125
+
 
 class DesertEagle(Weapon):
     rng = 500
@@ -824,6 +833,7 @@ class DesertEagle(Weapon):
     rate = 50
     reload_rate = 100
 
+
 class AssaultRifle(Weapon):
     rng = 600
     dmg = 3
@@ -836,6 +846,7 @@ class AssaultRifle(Weapon):
     rate = 1
     reload_rate = 75
 
+
 class QuadBarrelShotgun(Weapon):
     rng = 400
     dmg = 12
@@ -844,14 +855,14 @@ class QuadBarrelShotgun(Weapon):
     spread = 24
     bullets_per_mg = 12
     bullets_per_shot = 12
-    bullet_size=2
+    bullet_size = 2
     rate = 0
     reload_rate = 125
 
 
 class GLOOM(Game):
     screen_size = None
-    fullscreen=True
+    fullscreen = True
     screen_color = "#000"
     player_speed = 3
     fps = 60
@@ -872,7 +883,7 @@ class GLOOM(Game):
     )"""
 
     def __init__(self, *args):
-        
+
         self.walls = []
         self.bullets = []
         self.keys_down = set()
@@ -886,39 +897,63 @@ class GLOOM(Game):
         self.curr_weapon_index = 0
         self.level_index = 0
         super().__init__(*args)
-    
+
     def ready(self):
         self.start_game()
-        self.kc_indicator = KeycardIndicator.instantiate(Coords((self.screen_size.x-150, 20)))
-        self.level_indicator = LevelIndicator.instantiate(Coords((self.screen_size.x//2-75,self.screen_size.y-20)))
+        self.kc_indicator = KeycardIndicator.instantiate(
+            Coords((self.screen_size.x - 150, 20))
+        )
+        self.level_indicator = LevelIndicator.instantiate(
+            Coords((self.screen_size.x // 2 - 75, self.screen_size.y - 20))
+        )
         self.pline = Pline.instantiate(Coords((900, 20)))
-        self.ammo_label = AmmoMeter.instantiate(Coords((self.screen_size.x-150, self.screen_size.y-20)))
-        self.health_label = HealthMeter.instantiate(Coords((120, self.screen_size.y-20)))
-        self.fps_meter = FPSMeter.instantiate(Coords((self.screen_size.x-400, 30)))
+        self.ammo_label = AmmoMeter.instantiate(
+            Coords((self.screen_size.x - 150, self.screen_size.y - 20))
+        )
+        self.health_label = HealthMeter.instantiate(
+            Coords((120, self.screen_size.y - 20))
+        )
+        self.fps_meter = FPSMeter.instantiate(Coords((self.screen_size.x - 400, 30)))
+
     def start_game(self):
         self.keycards = set()
-        self.level=GloomFile("gloom1.gloom", self.screen_size).levels[self.level_index]
-        self.walls, self.enemies, self.items, self.doors, self.player, self.level_exit = (self.level.map.instantiate_all())
+        self.level = GloomFile("gloom1.gloom", self.screen_size).levels[
+            self.level_index
+        ]
+        (
+            self.walls,
+            self.enemies,
+            self.items,
+            self.doors,
+            self.player,
+            self.level_exit,
+        ) = self.level.map.instantiate_all()
         self.items.append(self.level_exit)
-        self.unseen_walls=self.walls.copy()
+        self.unseen_walls = self.walls.copy()
         self.walls.extend(self.doors)
         self.sprites.try_run("check")
         self.canvas.tag_lower("wall")
         self.canvas.tag_lower("item")
         self.canvas.tag_lower("enemy")
+
     def is_pressed(self, *keys):
         return all(key in self.keys_down for key in keys)
+
     def finish_level(self):
-        self.level_index+=1
+        self.level_index += 1
         self.reset()
         self.run_timers()
+
     def reset(self):
         self.timers = []
-        Sprites(self.walls+self.enemies+self.doors+self.items+[self.player]).destroy()
-        self.canvas.delete('wall')
-        self.canvas.delete('item')
-        self.canvas.delete('enemy')
+        Sprites(
+            self.walls + self.enemies + self.doors + self.items + [self.player]
+        ).destroy()
+        self.canvas.delete("wall")
+        self.canvas.delete("item")
+        self.canvas.delete("enemy")
         self.start_game()
+
     def tick(self, delta):
         print("TICK", delta)
         deltamult = delta / (1 / self.fps)
@@ -946,7 +981,7 @@ class GLOOM(Game):
                 self.weapons.remove(self.weapon)
                 self.weapon = self.weapons[-1]
         for weap in self.weapons:
-            if weap==self.weapon:
+            if weap == self.weapon:
                 continue
             weap.tick()
         for dig in "12345678":
@@ -977,11 +1012,11 @@ class GLOOM(Game):
         return False
 
     def check_line_collision(self, p1, p2, what, ignore=None):
-        if isinstance(what,Wall):
+        if isinstance(what, Wall):
             if not ENABLE_WALL_VISIBILITY_CHECK or what not in self.unseen_walls:
                 return False
         walls = self.walls.copy()
-        
+
         if ignore in walls:
             # print(ignore)
             walls.remove(ignore)
@@ -1018,14 +1053,16 @@ class GLOOM(Game):
     def _on_key_press(self, event):
         if event.keysym:
             self.keys_down.add(event.keysym.lower())
+
     @Game.on("r", True)
     def _reset(self, event):
-        self.weapon =  self.startlevel_weapon
+        self.weapon = self.startlevel_weapon
         self.weapons = self.startlevel_weapons
         self.known_weapons = self.startlevel_kweapons
         self.reset()
-        
+
         self.run_timers()
+
     @Game.on("<KeyRelease>", True)
     def _on_key_release(self, event):
         if event.keysym and event.keysym.lower() in self.keys_down:
@@ -1148,9 +1185,9 @@ class PlayerOrEnemy(HasCollision):
         super().__init__(coords, *args, **kwargs)
 
     def move(self, delta):
-        for step in range(1,NSTEPS+1):
-            ncoords = self.coords + (delta/NSTEPS)*step
-            
+        for step in range(1, NSTEPS + 1):
+            ncoords = self.coords + (delta / NSTEPS) * step
+
             if (
                 0 <= ncoords[0].x
                 and ncoords[1].x <= self.game.screen_size.x
@@ -1191,6 +1228,7 @@ class PlayerOrEnemy(HasCollision):
 class Item(HasCollision):
     shape = Shape.OVAL
     tag = "item"
+
     def __init__(self, *args, **kwargs):
         self.picked_up = False
         super().__init__(*args, **kwargs)
@@ -1228,7 +1266,7 @@ class WeaponPickupItem(Item):
 
 class Door(HasCollision):
     shape = Shape.RECTANGLE
-    tag="wall"
+    tag = "wall"
 
     def on_collide(self, sprite):
         # print("coll")
@@ -1292,6 +1330,7 @@ class BlueKeyCard(KeyCard):
     def remembered_color_hook(self):
         return "#449"
 
+
 @GLOOM.sprite()
 class RedDoor(Door):
     keycardid = 2
@@ -1310,6 +1349,7 @@ class RedKeyCard(KeyCard):
     def remembered_color_hook(self):
         return "#944"
 
+
 @GLOOM.sprite()
 class YellowDoor(Door):
     keycardid = 3
@@ -1317,6 +1357,8 @@ class YellowDoor(Door):
 
     def remembered_color_hook(self):
         return "#994"
+
+
 @GLOOM.sprite()
 class YellowKeyCard(KeyCard):
     keycardid = 3
@@ -1346,17 +1388,23 @@ class MachineGunPickupItem(WeaponPickupItem):
 class DoubleBarrelShotgunPickupItem(WeaponPickupItem):
     weapclass = DoubleBarrelShotgun
 
+
 @GLOOM.sprite()
 class DesertEaglePickupItem(WeaponPickupItem):
     weapclass = DesertEagle
 
 @GLOOM.sprite()
+class RocketLauncherPickupItem(WeaponPickupItem):
+    weapclass = RocketLauncher
+@GLOOM.sprite()
 class AssaultRiflePickupItem(WeaponPickupItem):
     weapclass = AssaultRifle
+
 
 @GLOOM.sprite()
 class QuadBarrelShotgunPickupItem(WeaponPickupItem):
     weapclass = QuadBarrelShotgun
+
 
 @GLOOM.sprite()
 class SpeedBooster(Item):
@@ -1412,23 +1460,48 @@ class StimPack(Item):
     def remembered_color_hook(self):
         return "#040"
 
+
 @GLOOM.sprite()
 class LevelExit(Item):
     kwargs = {"fill": "#f00"}
-    color_loop = ("#f00", "#e01", "#d02", "#c03", "#b04", "#a05", "#906", "#807", "#708", "#609", "#50a", "#40b", "#30c", "#20d", "#10e", "#00f")
-    tick_per_cc=3
+    color_loop = (
+        "#f00",
+        "#e01",
+        "#d02",
+        "#c03",
+        "#b04",
+        "#a05",
+        "#906",
+        "#807",
+        "#708",
+        "#609",
+        "#50a",
+        "#40b",
+        "#30c",
+        "#20d",
+        "#10e",
+        "#00f",
+    )
+    tick_per_cc = 3
+
     def __init__(self, *args, **kwargs):
-        self.nticks=0
+        self.nticks = 0
         super().__init__(*args, **kwargs)
+
     def tick(self):
-        self.nticks+=1
-        self._defaultfill=self.color_loop[self.nticks//self.tick_per_cc%len(self.color_loop)]
+        self.nticks += 1
+        self._defaultfill = self.color_loop[
+            self.nticks // self.tick_per_cc % len(self.color_loop)
+        ]
         self.check()
+
     def on_pickup_item(self):
         print("FISK")
         self.game.finish_level()
+
     def remembered_color_hook(self):
         return "#505"
+
 
 @GLOOM.sprite()
 class FPSMeter(Sprite):
@@ -1449,12 +1522,17 @@ class AmmoMeter(Label):
 @GLOOM.sprite()
 class KeycardIndicator(Label):
     kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#ea0"}
-    fmt = "Keycards: {','.join(KEYCARDS[kc].keycardname[0] for kc in self.game.keycards)}"
+    fmt = (
+        "Keycards: {','.join(KEYCARDS[kc].keycardname[0] for kc in self.game.keycards)}"
+    )
+
 
 @GLOOM.sprite()
 class LevelIndicator(Label):
-    kwargs= {"text": "", "font": ("Stencil", 20), "fill": "#fff"}
+    kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#fff"}
     fmt = "L{self.game.level_index+1}: {self.game.level.name}"
+
+
 @GLOOM.sprite()
 class HealthMeter(Label):
     kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#0a0"}
@@ -1488,7 +1566,7 @@ class HealthMeter(Label):
 @GLOOM.sprite()
 class Wall(HasCollision):
     kwargs = {"outline": "#eee", "fill": "#eee"}
-    tag="wall"
+    tag = "wall"
     shape = Shape.RECTANGLE
 
 
@@ -1503,7 +1581,7 @@ class Player(PlayerOrEnemy):
     def on_move(self):
         self.game.sprites.try_run("check")
 
-    
+
 class Enemy(PlayerOrEnemy):
     kwargs = {"fill": "#000"}
     friendly = False
@@ -1518,7 +1596,7 @@ class Enemy(PlayerOrEnemy):
         self.speed = self._speed
         self.hp = self.maxhp = self._hp
         self.armor = self._armor
-        self._ticks_wo_player=0
+        self._ticks_wo_player = 0
         super().__init__(*args, hp=self.hp, armor=self.armor, **kwargs)
 
     def remembered_color_hook(self):
@@ -1526,18 +1604,20 @@ class Enemy(PlayerOrEnemy):
 
     def active_color_hook(self):
         return self._active_colors[int(self.hp / (self.maxhp / 10))]
+
     def forget(self):
-        self.target=None
+        self.target = None
+
     def sprite_tick(self):
         line = (self.center_point, self.game.player.center_point)
-        if self._ticks_wo_player==100: # 15 secs
-            self.target=None
+        if self._ticks_wo_player == 100:  # 15 secs
+            self.target = None
         if self.active:
-            self._ticks_wo_player=0
+            self._ticks_wo_player = 0
             self.target = self.game.player.center_point
             self.update()
         else:
-            self._ticks_wo_player+=1
+            self._ticks_wo_player += 1
         if self.target is not None:
             if (
                 self.target - self.center_point
@@ -1570,7 +1650,9 @@ class Enemy(PlayerOrEnemy):
                 and (self.target - self.center_point).norm <= self.weapon.rng
                 and self.weapon._bullets_left > 0
             ):
-                self.send_event("shoot", self.weapon, self.target, self.center_point, self.accuracy)
+                self.send_event(
+                    "shoot", self.weapon, self.target, self.center_point, self.accuracy
+                )
             else:
                 self.weapon.tick()  # allow cooldown
 
@@ -1694,6 +1776,11 @@ ITEM_CLASSES = {
     "armor": Armor,
     "shotgunpickup": ShotgunPickupItem,
     "machinegunpickup": MachineGunPickupItem,
+    "doublebarrelpickup": DoubleBarrelShotgunPickupItem,
+    "deaglepickup": DesertEaglePickupItem,
+    "arpickup": AssaultRiflePickupItem,
+    "bazpickup": RocketLauncherPickupItem,
+    "quadbarrpickup": QuadBarrelShotgunPickupItem,
     "bluekeycard": BlueKeyCard,
     "redkeycard": RedKeyCard,
     "yellowkeycard": YellowKeyCard,

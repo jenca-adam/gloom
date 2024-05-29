@@ -63,11 +63,12 @@ _    fea      B       #                 A    ea#    #fff      #
 @level 1
 !name The Hospital
 !items
-:medikit
-:stimpack
-:yellowkeycard
-:redkeycard
-:bluekeycard
+:medikit #a
+:stimpack #b
+:yellowkeycard #c
+:redkeycard #d
+:bluekeycard #e
+:bazpickup #f
 :end
 !enemies
 :pistoller
@@ -93,8 +94,8 @@ _    fea      B       #                 A    ea#    #fff      #
 ##########################################################    #
                                           1      #    #  #    #
                                           1      #       #    #
-                                          #              #    #
-    #                                     #           #  #    #
+                                          #              ##22##
+    #                                     #           #  #f  f#
    ###                                    #################22##
     #
 
