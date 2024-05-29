@@ -1393,9 +1393,12 @@ class DoubleBarrelShotgunPickupItem(WeaponPickupItem):
 class DesertEaglePickupItem(WeaponPickupItem):
     weapclass = DesertEagle
 
+
 @GLOOM.sprite()
 class RocketLauncherPickupItem(WeaponPickupItem):
     weapclass = RocketLauncher
+
+
 @GLOOM.sprite()
 class AssaultRiflePickupItem(WeaponPickupItem):
     weapclass = AssaultRifle
