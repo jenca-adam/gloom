@@ -24,23 +24,23 @@
 :end
 !map
 ########    #####################################
-#e    e#    #              #ffaBB       #   1   #
-#      ######              #ffaBB       # h 1   #
+#ee  ee#    #              #ffa B       #   1   #
+#      ######              #ffa A       # h 1   #
 #           A      a####CCC##########   #   #   #
 #           A      b#BB#            #   # B #   #
-#      ######   #####  #            #   #####   #######
-#   ^  #cffc#   #####  #   ######   #                 #
-#e    e#fddf#          #   #    #   #                 #
+#   ^  ######   #####  #            #   #####   #######
+#      #cffc#   #####  #   ######   #                 #
+#ee  ee#fddf#          #   #    #   #                 #
 ########2222#          #   #    # A #   ###########   ##
 #        CC #########aa#   ######   #   #  #A         a#
 #                   ####       a#       #  #A         a#
 #                      #       d#       #  ####################
 ##################f    ##########111#   #  #       B          #
-                 #a         1fff1 A #   #  #       B          #
+                 #a         1fff1 A #   #  #       A          #
                  #b       BA1aaa1 A #   #  #   ############111#
 #####################################   ####   #          #   #
-#a                B                            #          2   #
-#g                B                            #          2   #
+#a                B                     a  b   #          2   #
+#g                A                           b#          2   #
 ################################################    #######   #
 _    fea      A       #ffff             A    ea#    #eee      #
 _    fea      B       #                 A    ea#    #fff      #
@@ -61,7 +61,7 @@ _    fea      B       #                 A    ea#    #fff      #
               #################################################
 !end                                 
 @level 1
-!name The Hospital
+!name The Dungeon
 !items
 :medikit #a
 :stimpack #b
@@ -69,9 +69,16 @@ _    fea      B       #                 A    ea#    #fff      #
 :redkeycard #d
 :bluekeycard #e
 :bazpickup #f
+:arpickup #g
+:deaglepickup #h
+:armor #i
+:doublebarrelpickup #j
 :end
 !enemies
 :pistoller
+:shotgunner
+:defender
+:schoolshooter
 :end
 !doors
 :yellowdoor
@@ -80,39 +87,94 @@ _    fea      B       #                 A    ea#    #fff      #
 :end
 !map
                    ############################################
-##########         #                   #  #      #  #e   #    #
-#ab      #         #                   #            #    #    #
+##########         #     B             #  #      #  #e   #ffff#
+#ab  gggg#         #     B             #            #    #aaaa#
 #   #    ###########  ###############  #      #     #    ##11##
-# ^                         #       #  #  #   #  #  ##22##    #
-#                           #       #  #  #   #  #  #    #    #
-#   #    ##############     #          ####   ####       ##  ##
-#ab      # _          #b    #b         #         #            #
-##########            #a   d#a      #  #         #  #         #
-##############11#####################  ###########  ###########
-#               3                                             #
-#               3                                             #
+# ^                        a#A     a#  #  #   #33#  ##22##A  A#
+# i                         #C      #  #BB#   #aa#  #    #    #
+#   #    ##############     #C         #### C ####  a    ##  ##
+#ab  jjjj# _          #b    #b         #a       a#  a         #
+########## B         B#aABAd#ahhhhha#  #a  bib  a#  #        B#
+##############11#####################AB###########CC###########
+#ab            A3                                             #
+#ab            A3                                             #
 ##########################################################    #
-                                          1      #    #  #    #
-                                          1      #       #    #
-                                          #              ##22##
-    #                                     #           #  #f  f#
+                                          1      #    #a #    #
+                                          1      #     a #    #
+                                          #      A     a #fAAf#
+    #AAA                                  #      A    #a #f  f#
    ###                                    #################22##
     #
 
-                #
+                #B                                         A
 #####          ###
-#   3           #                  # #
-#   3                               #
+#A  3           #                  #B#
+#A  3                               #
 #   #                              # #
 #   ########################
-#   2                #     #				##111##
-# c 2                #     1				#     #
-#################    #     1				#     #
-                #    ##   ##				#     #
-                #    2     #				#     #
-                #    2     #				#     #
+#   2                #     #  				##111##
+#aca2                #     1				#DDDDD#
+#################ABBA#     1				#11111#
+                #    ##AAA##		AAA	        #DDDDD#
+                #    2     #				#11111#
+                #a  a2     #				#DDDDD#
                 ############				#######
 !end 
+@level 2
+!name A fight with Death
+!items
+:medikit #a
+:speedboost #b
+:machinegunpickup #c
+:quadbarrpickup #d
+:arpickup #e
+:bazpickup #f
+:armor #g
+:redkeycard #h
+:supercharge #i
+:end
+!enemies
+:death #A
+:end
+!doors
+:reddoor
+:bluedoor
+:end
+!map
+################
+#dddddddddddddd#
+#eeeeeeeeeeeeee#
+#ffffffffffffff#
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#####c         #
+#  aac        b1
+#^ ahci	     gb1			          2 
+#  aac	      b1				A2_2	 
+#####c         # 				  2
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#	       #
+#ffffffffffffff#
+#eeeeeeeeeeeeee#
+#dddddddddddddd#
+################	       
+!end
 @end                                                                                                                                 
                                                                                                                                  
                                                                                                                                  

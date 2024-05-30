@@ -11,8 +11,8 @@ import cmath
 """
 This program contains a wrapper around tkinter's functions to make it less of a pain to use.
 """
-ENABLE_WALL_VISIBILITY_CHECK = False
-t = 0
+ENABLE_WALL_VISIBILITY_CHECK = True
+FONT = "Trebuchet MS"
 ### BEGIN
 
 
@@ -287,8 +287,8 @@ class Game:
         self.started = False
         self._time = time.perf_counter()
         self.event_handlers = self._event_handlers
-        self.canvas = tkinter.Canvas()
-        self.canvas.pack()
+        self.canvas = tkinter.Canvas(bd=0, highlightthickness=0, relief='ridge')
+        self.canvas.pack(expand=True, fill="both")
         self.sprites = Sprites()
         self.event_queue = queue.Queue()
 
@@ -766,7 +766,7 @@ class Pistol(Weapon):
     bullets_per_shot = 1
     bullet_size = 3
     rate = 25
-    reload_rate = 100
+    reload_rate = 75
 
 
 class Shotgun(Weapon):
@@ -779,7 +779,7 @@ class Shotgun(Weapon):
     bullets_per_shot = 5
     bullet_size = 2
     rate = 0
-    reload_rate = 100
+    reload_rate = 75
 
 
 class MachineGun(Weapon):
@@ -806,6 +806,19 @@ class RocketLauncher(Weapon):
     bullet_size = 25
     rate = 0
     reload_rate = 150
+
+
+class TouchOfDeath(Weapon):
+    rng = 800
+    dmg = 200
+    pierce = 100
+    speed = 8
+    spread = 0
+    bullets_per_mg = 1
+    bullets_per_shot = 1
+    bullet_size = 25
+    rate = 0
+    reload_rate = 20
 
 
 class DoubleBarrelShotgun(Weapon):
@@ -889,16 +902,19 @@ class GLOOM(Game):
         self.keys_down = set()
         self.mouse_pos = (0, 0)
         self.mouse_held = False
-        self.weapon = self.startlevel_weapon = AssaultRifle(200)
+        self.won = False
+        self.weapon = self.startlevel_weapon = Pistol(200)
         self.weapons = [self.weapon]
         self.known_weapons = [w.__class__ for w in self.weapons]
         self.startlevel_weapons = self.weapons.copy()
         self.startlevel_kweapons = self.known_weapons.copy()
         self.curr_weapon_index = 0
         self.level_index = 0
+
         super().__init__(*args)
 
     def ready(self):
+        self.levels = GloomFile("gloom1.gloom", self.screen_size)
         self.start_game()
         self.kc_indicator = KeycardIndicator.instantiate(
             Coords((self.screen_size.x - 150, 20))
@@ -917,9 +933,7 @@ class GLOOM(Game):
 
     def start_game(self):
         self.keycards = set()
-        self.level = GloomFile("gloom1.gloom", self.screen_size).levels[
-            self.level_index
-        ]
+        self.level = self.levels.levels[self.level_index]
         (
             self.walls,
             self.enemies,
@@ -941,6 +955,17 @@ class GLOOM(Game):
 
     def finish_level(self):
         self.level_index += 1
+        if self.level_index >= len(self.levels.levels):
+            self.sprites.destroy()
+            self.won = True
+            WonLabel.instantiate(
+                Coords((self.screen_size.x // 2, self.screen_size.y // 2))
+            )
+            PressQ.instantiate(
+                Coords((self.screen_size.x // 2, self.screen_size.y // 2 + 40))
+            )
+            
+            return
         self.reset()
         self.run_timers()
 
@@ -955,11 +980,8 @@ class GLOOM(Game):
         self.start_game()
 
     def tick(self, delta):
-        print("TICK", delta)
         deltamult = delta / (1 / self.fps)
         self.fps_meter.update_text(delta)
-        print("move", len(self.walls))
-        print(self.keys_down)
         if self.is_pressed("w"):
             self.player.move(UP * self.player_speed * deltamult)
         if self.is_pressed("a"):
@@ -987,16 +1009,17 @@ class GLOOM(Game):
         for dig in "12345678":
             if self.is_pressed(dig):
                 if len(self.weapons) >= int(dig):
-                    self.weapons[self.curr_weapon_index] = self.weapon
+                    try:
+                        self.weapons[self.curr_weapon_index] = self.weapon
+                    except:
+                        pass
                     self.weapon = self.weapons[int(dig) - 1]
                     self.curr_weapon_index = int(dig) - 1
         # print(len(self.bullets))
-        print("bull")
         for bullet in self.bullets:
             if not bullet.flying:
                 self.bullets.remove(bullet)
             bullet.move()
-        print("it")
         for item in self.items:
             if item.collision_check(self.player.coords, self.player):
                 print(item)
@@ -1062,6 +1085,11 @@ class GLOOM(Game):
         self.reset()
 
         self.run_timers()
+
+    @Game.on("q", True)
+    def _quit(self, event):
+        if self.won:
+            self.destroy()
 
     @Game.on("<KeyRelease>", True)
     def _on_key_release(self, event):
@@ -1290,7 +1318,7 @@ class KeyCard(Item):
 @GLOOM.sprite()
 class Pline(Sprite):
     shape = Shape.TEXT
-    kwargs = {"fill": "#fff", "text": "", "font": ("Stencil", 20)}
+    kwargs = {"fill": "#fff", "text": "", "font": (FONT, 20)}
 
     def __init__(self, *args, **kwargs):
         self.lines = []
@@ -1410,6 +1438,11 @@ class QuadBarrelShotgunPickupItem(WeaponPickupItem):
 
 
 @GLOOM.sprite()
+class TouchOfDeathPickupItem(WeaponPickupItem):
+    weapclass = TouchOfDeath
+
+
+@GLOOM.sprite()
 class SpeedBooster(Item):
     kwargs = {"fill": "#f0f"}
 
@@ -1437,6 +1470,18 @@ class MediKit(Item):
 
     def remembered_color_hook(self):
         return "#0a0"
+
+
+@GLOOM.sprite()
+class Supercharge(Item):
+    kwargs = {"fill": "#0f5"}
+
+    def on_pickup_item(self):
+        self.game.pline.pline("Picked up a SUPERCHARGE!!")
+        self.game.player.hp = 400
+
+    def remembered_color_hook(self):
+        return "#0a3"
 
 
 @GLOOM.sprite()
@@ -1509,7 +1554,7 @@ class LevelExit(Item):
 @GLOOM.sprite()
 class FPSMeter(Sprite):
     shape = Shape.TEXT
-    kwargs = {"text": "", "font": ("Stencil", 10), "fill": "#ddd"}
+    kwargs = {"text": "", "font": (FONT, 10), "fill": "#ddd"}
 
     def update_text(self, delta):
         self.text = f"FPS: {1/delta:.2f}"
@@ -1518,27 +1563,39 @@ class FPSMeter(Sprite):
 
 @GLOOM.sprite()
 class AmmoMeter(Label):
-    kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#00e"}
+    kwargs = {"text": "", "font": (FONT, 20), "fill": "#00e"}
     fmt = "{self.game.weapon.__class__.__name__}:{self.game.weapon._bullets_left_in_magazine}|{self.game.weapon._bullets_left}{'(R)' if self.game.weapon._until_reload>0 else ''}"
 
 
 @GLOOM.sprite()
 class KeycardIndicator(Label):
-    kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#ea0"}
+    kwargs = {"text": "", "font": (FONT, 20), "fill": "#ea0"}
     fmt = (
         "Keycards: {','.join(KEYCARDS[kc].keycardname[0] for kc in self.game.keycards)}"
     )
 
 
 @GLOOM.sprite()
+class WonLabel(Sprite):
+    shape=Shape.TEXT
+    kwargs = {"text": "You won!", "font": (FONT, 40), "fill": "#0f0"}
+
+
+@GLOOM.sprite()
+class PressQ(Sprite):
+    shape=Shape.TEXT
+    kwargs = {"text": "Press Q to quit", "font": (FONT, 20), "fill": "#0f0"}
+
+
+@GLOOM.sprite()
 class LevelIndicator(Label):
-    kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#fff"}
+    kwargs = {"text": "", "font": (FONT, 20), "fill": "#fff"}
     fmt = "L{self.game.level_index+1}: {self.game.level.name}"
 
 
 @GLOOM.sprite()
 class HealthMeter(Label):
-    kwargs = {"text": "", "font": ("Stencil", 20), "fill": "#0a0"}
+    kwargs = {"text": "", "font": (FONT, 20), "fill": "#0a0"}
     fmt = "HEALTH:{int(self.game.player.hp)}"
 
     def label_tick(self):
@@ -1589,6 +1646,7 @@ class Enemy(PlayerOrEnemy):
     kwargs = {"fill": "#000"}
     friendly = False
     tag = "enemy"
+    drop = ()
 
     def __init__(self, *args, **kwargs):
         self.active = False
@@ -1660,10 +1718,16 @@ class Enemy(PlayerOrEnemy):
                 self.weapon.tick()  # allow cooldown
 
     def on_die(self):
+        # drop items
+        # weap
         wp = WEAPON_PICKUP_CLASSES[self.weapon.__class__.__name__].instantiate(
             self.coords
         )
         self.game.items.append(wp)
+        # oth
+        if self.drop:
+            drops = [d.instantiate(self.coords) for d in self.drop]
+            self.game.items.extend(drops)
 
 
 @GLOOM.sprite()
@@ -1693,9 +1757,9 @@ class Pistoller(Enemy):
 @GLOOM.sprite()
 class Shotgunner(Enemy):
     _weapon = Shotgun
-    _ammo = 100
+    _ammo = 20
     _speed = 2
-    _accuracy = 2
+    _accuracy = 10
     _hp = 40
     _armor = 0
     _remembered_color = "#aa0"
@@ -1736,6 +1800,56 @@ class Defender(Enemy):
         "#dcc",
         "#cbb",
         "#bbb",
+    ]
+
+
+@GLOOM.sprite()
+class SchoolShooter(Enemy):
+    _weapon = AssaultRifle
+    _ammo = 1000
+    _speed = 1
+    _hp = 20  # nerd
+    _accuracy = 40  # cant shoot shit lol
+    _armor = 100
+    _remembered_color = "#161"
+    _active_colors = [
+        "#a01",
+        "#911",
+        "#821",
+        "#731",
+        "#641",
+        "#551",
+        "#461",
+        "#371",
+        "#281",
+        "#191",
+        "#0a1",
+    ]
+
+
+@GLOOM.sprite()
+class Death(Enemy):
+    drop = (BlueKeyCard,)
+    _weapon = TouchOfDeath
+    _ammo = 2000000
+    _speed = 3
+    _hp = 2500
+    _accuracy = 0
+    _armor = 500
+    _remembered_color = "#909"
+    _active_colors = [
+        "#a00",
+        "#a01",
+        "#a02",
+        "#a03",
+        "#a04",
+        "#a05",
+        "#a06",
+        "#a07",
+        "#a08",
+        "#a09",
+        "#a0a",
+        "#a0b",
     ]
 
 
@@ -1787,11 +1901,14 @@ ITEM_CLASSES = {
     "bluekeycard": BlueKeyCard,
     "redkeycard": RedKeyCard,
     "yellowkeycard": YellowKeyCard,
+    "supercharge": Supercharge,
 }
 ENEMY_CLASSES = {
     "pistoller": Pistoller,
     "shotgunner": Shotgunner,
     "defender": Defender,
+    "death": Death,
+    "schoolshooter": SchoolShooter,
 }
 DOOR_CLASSES = {
     "bluedoor": BlueDoor,
