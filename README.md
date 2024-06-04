@@ -82,6 +82,6 @@ Každý level má vchod a východ.
 Levely sú uložené v textových súboroch pre ľahšie navrhovanie levelov.
 Steny sú označované ako `#`, nepriatelia veľkými písmenami a itemy malými písmenami.
 
-Súbor z levelmi nájdete na adrese https://github.com/jenca-adam/gloom/blob/main/default.gloom .
+Súbor z levelmi nájdete na adrese https://github.com/jenca-adam/gloom/blob/main/gloom1.gloom .
 
 
